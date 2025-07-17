@@ -9,13 +9,16 @@ import javafx.scene.shape.*;
 import javafx.scene.text.Text;
 import org.bxwbb.spigotplugincreatertool.HelloApplication;
 import org.bxwbb.spigotplugincreatertool.MinWindow;
+import org.bxwbb.spigotplugincreatertool.windowLabel.*;
 
+import java.util.ArrayList;
 import java.util.List;
 
+@SuppressWarnings("ALL")
 public class Node {
 
     // 节点卡片背景色
-    public static Color CARD_BG_COLOR = Color.color(0.2, 0.2, 0.2);
+    public static Color CARD_BG_COLOR = Color.color(0.1, 0.1, 0.1);
     // 节点卡片顶部颜色
     public static Color CARD_TOP_COLOR = Color.color(0.1, 0.1, 0.1);
     // 节点卡片边框颜色
@@ -25,7 +28,7 @@ public class Node {
     // 卡片阴影效果半径
     public static float CARD_SHADOW_RADIUS = 30.0f;
     // 执行顺序连接节点颜色
-    public static Color EXECUTE_ORDER_COLOR = Color.rgb(153, 210, 143);
+    public static Color EXECUTE_ORDER_COLOR = Color.rgb(67, 160, 71);
 
     public double startX;
     public double startY;
@@ -34,7 +37,6 @@ public class Node {
     public Group root;
     public Group base;
     public Group nodeGroup;
-    public Rectangle mask;
     public String name;
     public Text title;
     public Text hideTitle;
@@ -51,14 +53,15 @@ public class Node {
     public DropShadow cardDropShadow;
     public Polygon leftRunLineInput;
     public Polygon rightRunLineOutput;
+    public Color topBarColor;
 
     private double rMouseX, rMouseY;
 
-    Node(double startX, double startY, Group root, String name, List<String> lore, List<NodeCardNode> leftCardNodes, List<NodeCardNode> rightCardNodes) {
+    public Node(double startX, double startY, Group root, String name, List<String> lore, List<NodeCardNode> leftCardNodes, List<NodeCardNode> rightCardNodes, Color topBarColor) {
         this.startX = startX;
         this.startY = startY;
-        this.endX = startX;
-        this.endY = startY + 60;
+        this.endX = startX + 40 + (new Text(name).getLayoutBounds().getWidth() + 50);
+        this.endY = startY + 45;
         this.root = root;
         this.name = name;
         this.lore = lore;
@@ -68,14 +71,34 @@ public class Node {
         this.rightCardNodes = rightCardNodes;
         for (int i = 0; i < this.rightCardNodes.size(); i++) {
             double nextHeight = i == 0 ? 0 : this.rightCardNodes.get(i - 1).getNextHeight();
+            if (this.leftCardNodes.isEmpty() && this.rightCardNodes.size() == 1) {
+                this.endY += this.rightCardNodes.getLast().getNextHeight();
+            }
             this.endY += nextHeight;
             this.endX = Math.max(this.endX, startX + this.rightCardNodes.get(i).getWidth());
         }
+        double rNextHeight = 0;
+        for (int i = 0; i < this.leftCardNodes.size(); i++) {
+            rNextHeight += i == 0 ? (this.rightCardNodes.isEmpty() ? 0 : this.rightCardNodes.getLast().getNextHeight()) : this.leftCardNodes.get(i - 1).getNextHeight();
+            this.leftCardNodes.get(i).resetPos((float) startX - 1, (float) ((float) endY + rNextHeight), startX, endX - startX);
+            if (this.leftCardNodes.get(i).edit != null)
+                this.leftCardNodes.get(i).edit.autoWidth();
+            this.leftCardNodes.get(i).addTo(leftGroup);
+        }
+        for (int i = 0; i < this.leftCardNodes.size(); i++) {
+            double nextHeight = i == 0 ? (this.rightCardNodes.isEmpty() ? 0 : this.rightCardNodes.getLast().getNextHeight()) : this.leftCardNodes.get(i - 1).getNextHeight();
+            this.endY += nextHeight;
+            this.endX = Math.max(this.endX, startX + this.leftCardNodes.get(i).getWidth());
+        }
+        this.endY += this.leftCardNodes.isEmpty() ? 0 : this.leftCardNodes.getLast().getNextHeight();
+        rNextHeight = 0;
         for (int i = 0; i < this.rightCardNodes.size(); i++) {
-            double nextHeight = i == 0 ? 0 : this.rightCardNodes.get(i - 1).getNextHeight();
-            this.rightCardNodes.get(i).resetPos((float) endX + 1, (float) ((float) startY + 45 + i * nextHeight));
+            rNextHeight += i == 0 ? 0 : this.rightCardNodes.get(i - 1).getNextHeight();
+            this.rightCardNodes.get(i).resetPos((float) endX + 1, (float) ((float) startY + 45 + rNextHeight), startX, endX - startX);
             this.rightCardNodes.get(i).addTo(rightGroup);
         }
+        this.leftMask = new Rectangle(startX - 20, startY, endX - startX + 20, endY - startY);
+        this.leftGroup.setClip(leftMask);
         this.rightMask = new Rectangle(startX, startY, endX - startX + 20, endY - startY);
         this.rightGroup.setClip(rightMask);
         this.nodeGroup = new Group();
@@ -119,7 +142,8 @@ public class Node {
         });
         this.topBar = new Line(startX, startY, endX, startY);
         this.topBar.setStrokeWidth(60.0);
-        this.topBar.setStroke(CARD_TOP_COLOR);
+        this.topBarColor = topBarColor;
+        this.topBar.setStroke(this.topBarColor);
         this.topBar.setOnMousePressed(event -> {
             if (event.isPrimaryButtonDown()) {
                 this.rMouseX = event.getX();
@@ -175,6 +199,19 @@ public class Node {
         this.nodeGroup.getChildren().add(this.rightGroup);
         this.nodeGroup.getChildren().add(this.leftGroup);
         this.root.getChildren().add(this.nodeGroup);
+        this.resetPos((float) this.startX, (float) this.startY);
+    }
+
+    public Node createNew(double x,double y, Group root) {
+        List<NodeCardNode> lcn = new ArrayList<NodeCardNode>();
+        for (NodeCardNode n : this.leftCardNodes) {
+            lcn.add(n.createNew());
+        }
+        List<NodeCardNode> rcn = new ArrayList<NodeCardNode>();
+        for (NodeCardNode n : this.rightCardNodes) {
+            rcn.add(n.createNew());
+        }
+        return new Node(x, y, root, this.name, this.lore, lcn, rcn, this.topBarColor);
     }
 
     public void delete() {
@@ -218,10 +255,23 @@ public class Node {
         this.hideTitle.setY(this.startY + 20);
         this.title.setX(this.startX + 25 + this.hideTitle.getLayoutBounds().getWidth());
         this.title.setY(this.startY + 20);
+        double rY = startY + 45;
         for (int i = 0; i < this.rightCardNodes.size(); i++) {
             double nextHeight = i == 0 ? 0 : this.rightCardNodes.get(i - 1).getNextHeight();
-            this.rightCardNodes.get(i).resetPos((float) endX + 1, (float) ((float) startY + 45 + i * nextHeight));
+            rY += nextHeight;
         }
+        double rNextHeight = 0;
+        for (int i = 0; i < this.leftCardNodes.size(); i++) {
+            rNextHeight += i == 0 ? (this.rightCardNodes.isEmpty() ? 0 : this.rightCardNodes.getLast().getNextHeight()) : this.leftCardNodes.get(i - 1).getNextHeight();
+            this.leftCardNodes.get(i).resetPos((float) startX - 1, (float) ((float) rY + rNextHeight), startX, endX - startX);
+        }
+        rNextHeight = 0;
+        for (int i = 0; i < this.rightCardNodes.size(); i++) {
+            rNextHeight += i == 0 ? 0 : this.rightCardNodes.get(i - 1).getNextHeight();
+            this.rightCardNodes.get(i).resetPos((float) endX + 1, (float) ((float) startY + 45 + rNextHeight), startX, endX - startX);
+        }
+        this.leftMask.setX(startX - 20);
+        this.leftMask.setY(startY);
         this.rightMask.setX(startX);
         this.rightMask.setY(startY);
         this.base.setClip(getBaseMask());
@@ -230,9 +280,30 @@ public class Node {
     public void resetSize(float width, float height) {
         this.endX = startX + width;
         this.endY = startY + height;
+        double rY = startY + 45;
         for (int i = 0; i < this.rightCardNodes.size(); i++) {
             double nextHeight = i == 0 ? 0 : this.rightCardNodes.get(i - 1).getNextHeight();
-            this.rightCardNodes.get(i).resetPos((float) endX + 1, (float) ((float) startY + 45 + i * nextHeight));
+            rY += nextHeight;
+        }
+        double rNextHeight = 0;
+        for (int i = 0; i < this.leftCardNodes.size(); i++) {
+            rNextHeight += i == 0 ? this.rightCardNodes.getLast().getNextHeight() : this.leftCardNodes.get(i - 1).getNextHeight();
+            this.leftCardNodes.get(i).resetPos((float) startX - 1, (float) ((float) rY + rNextHeight), startX, endX - startX);
+        }
+        rNextHeight = 0;
+        for (int i = 0; i < this.rightCardNodes.size(); i++) {
+            rNextHeight += i == 0 ? 0 : this.rightCardNodes.get(i - 1).getNextHeight();
+            this.rightCardNodes.get(i).resetPos((float) endX + 1, (float) ((float) startY + 45 + rNextHeight), startX, endX - startX);
+        }
+        for (NodeCardNode nodeCardNode : this.leftCardNodes) {
+            if (nodeCardNode.edit != null)
+                nodeCardNode.edit.resetSize((float) ((float) endX - startX - 20), (float) 14);
+            ;
+        }
+        for (NodeCardNode nodeCardNode : this.rightCardNodes) {
+            if (nodeCardNode.edit != null)
+                nodeCardNode.edit.resetSize((float) ((float) endX - startX - 20), (float) 14);
+            ;
         }
         this.backgroundBorder.setWidth(endX - startX + CARD_BORDER_WIDTH * 2);
         this.backgroundBorder.setHeight(endY - startY + CARD_BORDER_WIDTH * 2);
@@ -249,6 +320,8 @@ public class Node {
                 0.0 + this.endX - 20, 0.0 + this.startY + 5,
                 0.0 + this.endX - 20, 20.0 + this.startY + 5,
                 15.0 + this.endX - 20, 10.0 + this.startY + 5);
+        this.leftMask.setWidth(endX - startX + 20);
+        this.leftMask.setHeight(endY - startY);
         this.rightMask.setWidth(endX - startX + 20);
         this.rightMask.setHeight(endY - startY);
         this.base.setClip(getBaseMask());
@@ -264,35 +337,50 @@ public class Node {
     public static class NodeCardNode {
 
         public Group point;
-        public Group edit;
-        public Text title;
+        public BaseLabel edit;
         public String name;
         public List<String> lore;
         public Group root;
         public boolean rightText;
-        private final VarType varType;
+        public final VarType varType;
+        private List<VarType> args;
+        private Object data;
 
-        NodeCardNode(String name, List<String> lore, VarType varType, boolean rightText) {
-            this.point = varType.getShape1();
-            this.edit = varType.getShape2();
+        public NodeCardNode(String name, List<String> lore, VarType varType, boolean rightText, List<VarType> args, Object data) {
+            this.point = varType.getShape1(args);
+            this.rightText = rightText;
+            this.edit = varType.getShape2(this.rightText, data);
+            if (this.edit != null) {
+                this.edit.setName(name);
+            }
             this.name = name;
             this.lore = lore;
-            this.title = new Text(name);
             this.root = null;
-            this.rightText = rightText;
-            this.title.setFont(HelloApplication.TEXT_FONT);
-            this.title.setFill(HelloApplication.FONT_COLOR);
             this.varType = varType;
+            this.args = args;
+            this.data = data;
+        }
+
+        public NodeCardNode createNew() {
+            Object d = this.data;
+            List<BaseLabel> bl = new ArrayList<>();
+            if (this.varType.equals(VarType.LIST)) {
+                List<BaseLabel> r = (List<BaseLabel>) d;
+                for (BaseLabel baseLabel : r) {
+                    bl.add(baseLabel.createNew());
+                }
+            }
+            return new NodeCardNode(this.name, this.lore, this.varType, this.rightText, this.args, bl);
         }
 
         public void addTo(Group root) {
             this.root = root;
             this.root.getChildren().add(this.point);
-            this.root.getChildren().add(this.edit);
-            this.root.getChildren().add(this.title);
+            if (this.edit != null)
+                this.edit.addTo(root);
         }
 
-        public void resetPos(float x, float y) {
+        public void resetPos(float x, float y, double yx, double yw) {
             for (javafx.scene.Node node : this.point.getChildren()) {
                 if (node instanceof Circle) {
                     node.setLayoutX(x);
@@ -302,16 +390,9 @@ public class Node {
                     node.setLayoutY(y - 7);
                 }
             }
-            for (javafx.scene.Node node : this.edit.getChildren()) {
-                node.setLayoutX(x - 7);
-                node.setLayoutY(y - 7);
-            }
-            if (this.rightText) {
-                this.title.setLayoutX(x + 10);
-                this.title.setLayoutY(y + 4);
-            } else {
-                this.title.setLayoutX(x - this.title.getLayoutBounds().getWidth() - 12);
-                this.title.setLayoutY(y + 4);
+            if (edit != null) {
+                edit.resetPos((float) (yx + 10), y - 7);
+                edit.resetSize((float) yw - 20, (float) 14);
             }
         }
 
@@ -319,33 +400,34 @@ public class Node {
             // 设置缩放
             this.point.setScaleX(s);
             this.point.setScaleY(s);
-            this.edit.setScaleX(s);
-            this.edit.setScaleY(s);
+//            this.edit.setScaleX(s);
+//            this.edit.setScaleY(s);
             // TODO 缩放
-            this.title.setScaleX(s);
-            this.title.setScaleY(s);
-            this.title.setLayoutX(this.title.getLayoutX() + 5 * s);
-            this.title.setLayoutY(this.title.getLayoutY() + 5 * s);
         }
 
         public double getWidth() {
-            return this.point.getLayoutBounds().getWidth() + this.title.getLayoutBounds().getWidth();
+            return this.point.getLayoutBounds().getWidth() + ((this.edit == null) ? 0 : this.edit.getWidth());
         }
 
         public double getNextHeight() {
-            return switch (this.varType) {
-                case BYTE,SHORT,INT,LONG,FLOAT,DOUBLE,BOOLEAN,CHAR -> 30;
-            };
+            return Node.getNextHeight(this.varType);
         }
 
         public void delete() {
             this.point.getChildren().clear();
-            this.edit.getChildren().clear();
+            if (this.edit != null)
+                this.edit.delete();
             this.root.getChildren().remove(this.point);
-            this.root.getChildren().remove(this.edit);
-            this.root.getChildren().remove(this.title);
         }
 
+    }
+
+    public static double getNextHeight(VarType varType) {
+        return switch (varType) {
+            case BYTE, SHORT, INT, LONG, FLOAT, DOUBLE, BOOLEAN, CHAR -> 30;
+            case STRING -> 50;
+            case LIST -> 100;
+        };
     }
 
     public enum VarType {
@@ -356,11 +438,16 @@ public class Node {
         FLOAT,
         DOUBLE,
         BOOLEAN,
-        CHAR;
+        CHAR,
+        STRING,
+        LIST;
 
-        public Group getShape1() {
+        public Group getShape1(List<VarType> args) {
             Group group = new Group();
             Shape shape;
+            Shape shape2;
+            VarType rVarType;
+            List<VarType> argCopy;
             switch (this) {
                 case BYTE:
                     shape = new Circle(0.0, 0.0, 7.0);
@@ -418,17 +505,55 @@ public class Node {
                     shape.setStroke(CARD_BORDER_COLOR);
                     group.getChildren().add(shape);
                     break;
+                case STRING:
+                    shape = new Circle(0.0, 0.0, 7.0);
+                    shape.setFill(Color.rgb(147, 112, 219));
+                    shape.setStrokeWidth(1.5f);
+                    shape.setStroke(CARD_BORDER_COLOR);
+                    group.getChildren().add(shape);
+                    break;
+                case LIST:
+                    argCopy = new ArrayList<>(args);
+                    rVarType = argCopy.getFirst();
+                    argCopy.removeFirst();
+                    group = rVarType.getShape1(argCopy);
+                    shape2 = new Circle(0.0,0.0,3.0);
+                    shape2.setFill(CARD_BORDER_COLOR);
+                    group.getChildren().add(shape2);
+                    break;
             }
             return group;
         }
 
-        public Group getShape2() {
-            Group group = new Group();
-            switch (this) {
-                case BYTE, SHORT, INT, LONG, FLOAT, DOUBLE, BOOLEAN, CHAR:
-                    break;
+        public BaseLabel getShape2(boolean rightText, Object data) {
+            BaseLabel baseLabel = switch (this) {
+                case FLOAT ->
+                        new SliderFloat(0.0, 0.0, 10.0, 10.0, (Float) data, "单精度浮点-Float", List.of("参数描述-Parameter description"), false, false, 0.0f, 0.0f, 0.5f);
+                case DOUBLE ->
+                        new SliderDouble(0.0, 0.0, 10.0, 10.0, (Double) data, "双精度浮点-Double", List.of("参数描述-Parameter description"), false, false, 0.0, 0.0, 0.5);
+                case BYTE ->
+                        new SliderByte(0, 0, 10, 10, (byte) data, "字节-Byte", List.of("参数描述-Parameter description"), true, true, (byte) -128, (byte) 127, (byte) 1);
+                case SHORT ->
+                        new SliderShort(0, 0, 10, 10, (short) data, "短整型-Short", List.of("参数描述-Parameter description"), false, false, (short) 0, (short) 0, (short) 1);
+                case INT ->
+                        new SliderInt(0, 0, 10, 10, (int) data, "整型-Int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1);
+                case LONG ->
+                        new SliderLong(0, 0, 10, 10, (long) data, "长整型-Long", List.of("参数描述-Parameter description"), false, false, 0, 0, 1);
+                case BOOLEAN ->
+                        new BooleanInput(0, 0, 10, 10, (boolean) data,"布尔型-Boolean", List.of("参数描述-Parameter description"));
+                case CHAR ->
+                        new SliderChar(0, 0, 10, 10, (char) data, "字节型-Byte", List.of("参数描述-Parameter description"), (char) 1);
+                case STRING ->
+                        new StringInput(0, 0, 10, 10, "字符串型-String", List.of("参数描述-Parameter description"), (String) data);
+                case LIST ->
+                        new ListSlider(0, 0, 10, 10, "长整型列表-Long List", List.of("参数描述-Parameter description"), (List<BaseLabel>) data, VarType.LONG);
+            };
+            baseLabel.setVisible(rightText);
+            if (!rightText) {
+                baseLabel.setVisible(false);
             }
-            return group;
+
+            return baseLabel;
         }
 
     }

@@ -275,12 +275,12 @@ public class MinWindow {
         resetPos(startX, startY);
         resetSize(endX - startX, endY - startY);
         this.base.getChildren().addFirst(this.background);
-        this.topBase.getChildren().add(this.topBar);
-        this.topBase.getChildren().add(this.windowTypeButtonBackground);
-        this.topBase.getChildren().add(this.title);
+        this.topBase.getChildren().addFirst(this.title);
+        this.topBase.getChildren().addFirst(this.windowTypeButtonBackground);
+        this.topBase.getChildren().addFirst(this.topBar);
         this.base.setClip(getMask());
         this.topBase.setClip(getMask());
-        this.root.getChildren().addFirst(this.topBase);
+        this.root.getChildren().add(this.topBase);
         this.root.getChildren().addFirst(this.base);
     }
 
