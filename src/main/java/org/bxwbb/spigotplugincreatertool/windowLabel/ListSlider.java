@@ -197,19 +197,20 @@ public class ListSlider extends BaseLabel {
     @Override
     public void setData(Object data) {
         List<Object> dataList = (List<Object>) data;
-        for (int i = 0; i < this.sliderLongs.size(); i++) {
-            this.sliderLongs.get(i).setData((dataList).get(i));
-        }
-        int r =  this.sliderLongs.size();
-        for (int i = 0; i < dataList.size() - r; i++) {
-            this.sliderLongs.add(this.sliderLongs.getLast().createNew());
-            this.sliderLongs.getLast().setName(name + "[" + (i + r) + "]");
-            this.sliderLongs.getLast().setData(dataList.get(i + r));
-            this.sliderLongs.getLast().addTo(this.sliderGroup);
-            this.sliderLongs.getLast().setVisible(this.visible);
+        List<BaseLabel> sl = new ArrayList<>();
+        for (int i = 0; i < dataList.size(); i++) {
+            sl.add(this.sliderLongs.getLast().createNew());
+            sl.getLast().setName(name + "[" + (i) + "]");
+            sl.getLast().setData(dataList.get(i));
+            sl.getLast().addTo(this.sliderGroup);
+            sl.getLast().setVisible(this.visible);
             this.resetPos(this.startX, this.startY);
         }
-        System.out.println(dataList);
+        for (BaseLabel sliderLong : this.sliderLongs) {
+            sliderLong.delete();
+        }
+        this.sliderLongs = sl;
+        this.resetPos(this.startX, this.startY);
     }
 
     @Override

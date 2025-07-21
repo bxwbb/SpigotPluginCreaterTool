@@ -1,12 +1,11 @@
 package org.bxwbb.spigotplugincreatertool.windowLabel;
 
 import javafx.scene.Group;
+import javafx.scene.Node;
+import javafx.scene.image.ImageView;
+import javafx.scene.input.MouseButton;
 import javafx.scene.paint.Color;
-import javafx.scene.paint.CycleMethod;
-import javafx.scene.paint.LinearGradient;
-import javafx.scene.paint.Stop;
 import javafx.scene.shape.Circle;
-import javafx.scene.shape.Shape;
 import org.bxwbb.spigotplugincreatertool.HelloApplication;
 
 public class ConnectingLine extends BaseLabel {
@@ -15,42 +14,43 @@ public class ConnectingLine extends BaseLabel {
     public Circle endPoint;
     public AutoBezierCurve bezierCurve;
     public Color lineStartColor;
-    public Shape combined;
+    public Color lineEndColor;
 
-    private final LinearGradient lineGradient;
-
-    public ConnectingLine(double startX, double startY, double endX, double endY, Color lineStartColor) {
+    public ConnectingLine(double startX, double startY, double endX, double endY, Color lineStartColor, Color lineEndColor) {
         this.base = new Group();
         this.startX = startX;
         this.startY = startY;
         this.endX = endX;
         this.endY = endY;
         this.lineStartColor = lineStartColor;
+        this.lineEndColor = lineEndColor;
         this.startPoint = new Circle(startX, startY, 5);
         this.startPoint.setFill(this.lineStartColor);
         this.endPoint = new Circle(endX, endY, 5);
         this.endPoint.setFill(HelloApplication.HOVER_COLOR);
         this.bezierCurve = new AutoBezierCurve(startX, startY, endX, endY);
-        this.bezierCurve.setStrokeWidth(5);
-        this.lineGradient = new LinearGradient(
-                0, 0,
-                1, 1,
-                true,
-                CycleMethod.NO_CYCLE,
-                new Stop(0, this.lineStartColor),
-                new Stop(1, HelloApplication.HOVER_COLOR)
-        );
-        this.bezierCurve.setStroke(this.lineGradient);
+        this.bezierCurve.setGradientColors(this.lineStartColor, this.lineEndColor);
+        this.bezierCurve.setLineWidth(5.0);
+    }
+
+    public void resetColor(Color lineStartColor, Color lineEndColor) {
+        this.lineStartColor = lineStartColor;
+        this.lineEndColor = lineEndColor;
+        this.bezierCurve.setGradientColors(this.lineStartColor, this.lineEndColor);
     }
 
     @Override
     public void resetPos(double x, double y) {
-
+        this.startX = x;
+        this.startY = y;
+        this.bezierCurve.setStartPoint(startX, startY);
     }
 
     @Override
     public void resetSize(double width, double height) {
-
+        this.endX = width;
+        this.endY = height;
+        this.bezierCurve.setEndPoint(endX, endY);
     }
 
     @Override
@@ -108,7 +108,8 @@ public class ConnectingLine extends BaseLabel {
                 this.startY,
                 this.endX,
                 this.endY,
-                this.lineStartColor
+                this.lineStartColor,
+                this.lineEndColor
         );
     }
 }

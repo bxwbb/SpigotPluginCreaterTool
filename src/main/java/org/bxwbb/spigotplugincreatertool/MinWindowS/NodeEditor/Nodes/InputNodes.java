@@ -2,17 +2,19 @@ package org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.Nodes;
 
 import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.Node;
 import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.NodeCtr;
+import org.bxwbb.spigotplugincreatertool.windowLabel.ObjectInput;
 import org.bxwbb.spigotplugincreatertool.windowLabel.StringInput;
 
 import java.util.List;
 
+@SuppressWarnings("ALL")
 public enum InputNodes {
 
-    MAIN("开始程序(程序入口点main函数)", new NodeCtr(0,0, new Node(
+    MAIN(NodeTopBarColor.START_NODE_TITLE, new NodeCtr(0, 0, new Node(
             0,
             0,
             NodeTopBarColor.empty,
-            "开始程序(程序入口点main函数)",
+            NodeTopBarColor.START_NODE_TITLE,
             List.of(
                     "若运行这个文件,则执行的第一个指令是这个函数"
             ),
@@ -25,11 +27,13 @@ public enum InputNodes {
                             false,
                             List.of(
                                     Node.VarType.STRING
-                            ),List.of(
-                            new StringInput(0,0,0,0,"args",List.of(), "bxwbb")
+                            ), List.of(
+                            new StringInput(0, 0, 0, 0, "args", List.of(), "bxwbb")
                     ))
             ),
-            NodeTopBarColor.INPUT_TOP_BAR_COLOR
+            NodeTopBarColor.INPUT_TOP_BAR_COLOR,
+            false,
+            true
     ),
             List.of(
                     inputs -> List.of(
@@ -37,8 +41,125 @@ public enum InputNodes {
                             "bilibili:1814140675",
                             "QQ:3754934636"
                     )
-            )
-            ));
+            ),
+            "main"
+    )),
+    PRINT("打印输出(System.out.println)", new NodeCtr(
+            0,
+            0,
+            new Node(
+                    0,
+                    0,
+                    NodeTopBarColor.empty,
+                    "打印输出(System.out.println)",
+                    List.of(
+                            "需要输出的值"
+                    ),
+                    List.of(
+                            new Node.NodeCardNode(
+                                    "值",
+                                    List.of(
+                                            "打印的值"
+                                    ),
+                                    Node.VarType.STRING,
+                                    true,
+                                    List.of(),
+                                    "输出"
+                            )
+                    ),
+                    List.of(
+                            new Node.NodeCardNode(
+                                    "值",
+                                    List.of(
+                                            "输入的值"
+                                    ),
+                                    Node.VarType.STRING,
+                                    false,
+                                    List.of(),
+                                    "输出"
+                            )
+                    ),
+                    NodeTopBarColor.INPUT_TOP_BAR_COLOR,
+                    true,
+                    true
+            ),
+            List.of(
+                    inputs -> {
+                        System.out.println(inputs.getFirst().value());
+                        return inputs.getFirst().value();
+                    }
+            ),
+            "java.io.PrintStream.println(java.lang.Object)"
+    )),
+    LIST_GET("获取列表元素", new NodeCtr(
+            0,
+            0,
+            new Node(
+                    0,
+                    0,
+                    NodeTopBarColor.empty,
+                    "获取列表元素",
+                    List.of(
+                            "元素"
+                    ),
+                    List.of(
+                            new Node.NodeCardNode(
+                                    "索引",
+                                    List.of(
+                                            "列表的索引"
+                                    ),
+                                    Node.VarType.INT,
+                                    true,
+                                    List.of(),
+                                    0
+                            ),
+                            new Node.NodeCardNode(
+                                    "列表",
+                                    List.of(
+                                            "列表的索引"
+                                    ),
+                                    Node.VarType.LIST,
+                                    true,
+                                    List.of(
+                                            Node.VarType.OBJECT
+                                    ),
+                                    List.of(
+                                            new ObjectInput(0, 0, 0, 0, null, "列表", List.of("列表")),
+                                            new ObjectInput(0, 0, 0, 0, null, "列表", List.of("列表")),
+                                            new ObjectInput(0, 0, 0, 0, null, "列表", List.of("列表")),
+                                            new ObjectInput(0, 0, 0, 0, null, "列表", List.of("列表")),
+                                            new ObjectInput(0, 0, 0, 0, null, "列表", List.of("列表")),
+                                            new ObjectInput(0, 0, 0, 0, null, "列表", List.of("列表")),
+                                            new ObjectInput(0, 0, 0, 0, null, "列表", List.of("列表")),
+                                            new ObjectInput(0, 0, 0, 0, null, "列表", List.of("列表"))
+                                    )
+                            )
+                    ),
+                    List.of(
+                            new Node.NodeCardNode(
+                                    "值",
+                                    List.of(
+                                            "该列表中索引位置的值"
+                                    ),
+                                    Node.VarType.OBJECT,
+                                    false,
+                                    List.of(),
+                                    null
+                            )
+                    ),
+                    NodeTopBarColor.INPUT_TOP_BAR_COLOR,
+                    true,
+                    true
+            ),
+            List.of(
+                    inputs -> {
+                        int index = (int) inputs.get(0).value();
+                        List<Object> ol = (List<Object>) inputs.get(1).value();
+                        return ol.get(index);
+                    }
+            ),
+            "java.util.List.get"
+    ));
 
     public final String name;
     public final NodeCtr nodeCtr;

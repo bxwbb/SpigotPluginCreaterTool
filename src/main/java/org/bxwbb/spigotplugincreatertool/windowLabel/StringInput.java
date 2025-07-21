@@ -92,6 +92,7 @@ public class StringInput extends BaseLabel {
         this.dataText.setVisible(true);
         this.textField.setVisible(false);
         this.dataText.setText(this.textField.getText());
+        this.data = this.textField.getText();
     }
 
     @Override

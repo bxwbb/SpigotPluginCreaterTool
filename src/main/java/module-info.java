@@ -10,6 +10,8 @@ module org.bxwbb.spigotplugincreatertool {
     requires org.kordamp.bootstrapfx.core;
     requires eu.hansolo.tilesfx;
     requires com.almasb.fxgl.all;
+    requires com.github.javaparser.core;
+    requires com.github.javaparser.symbolsolver.core;
 
     opens org.bxwbb.spigotplugincreatertool to javafx.fxml;
     exports org.bxwbb.spigotplugincreatertool;

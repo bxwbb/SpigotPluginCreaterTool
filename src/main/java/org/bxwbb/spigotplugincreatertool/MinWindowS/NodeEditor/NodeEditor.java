@@ -1,8 +1,11 @@
 package org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor;
 
+import javafx.application.Platform;
+import javafx.concurrent.Task;
 import javafx.event.EventHandler;
 import javafx.scene.Cursor;
 import javafx.scene.Group;
+import javafx.scene.image.Image;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
@@ -12,12 +15,14 @@ import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Text;
 import org.bxwbb.spigotplugincreatertool.MinWindow;
 import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.Nodes.InputNodes;
+import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.Nodes.NodeTopBarColor;
 import org.bxwbb.spigotplugincreatertool.MinWindowType;
 import org.bxwbb.spigotplugincreatertool.windowLabel.Button;
 import org.bxwbb.spigotplugincreatertool.windowLabel.ConnectingLine;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class NodeEditor extends MinWindowType {
 
@@ -31,6 +36,8 @@ public class NodeEditor extends MinWindowType {
     public static int VERTICAL_LINE_COUNT = 50;
     // 线条间距
     public static float LINE_SPACING = 30.0f;
+    // 顺序节点连接循环错误颜色
+    public static Color ERROR_COLOR = Color.rgb(255, 118, 118);
 
     public double cameraX = 0.0f;
     public double cameraY = 0.0f;
@@ -40,10 +47,20 @@ public class NodeEditor extends MinWindowType {
     public Rectangle r;
     public List<Node> nodes = new ArrayList<>();
     public List<NodeCtr> nodesCtr = new ArrayList<>();
-    public List<ConnectingLine> connectingLines = new ArrayList<>();
+    public ConnectingLine connectingLine;
     public boolean userConnectingLine = false;
+    // 执行顺序连接线
+    public List<ConnectingLine> executeLine = new ArrayList<>();
+    // 数据传输连接线
+    public List<ConnectingLine> dataLine = new ArrayList<>();
+    public Group connectingLineGroup;
+    public Group connectingDataLineGroup;
+    // 聚焦节点
+    public Node focusNode;
+    public NodeCtr runNodectr;
+    public Node.NodeCardNode focusCardNode;
 
-    //临时记录鼠标坐标
+    // 临时记录鼠标坐标
     private double rMouseX;
     private double rMouseY;
     private double rrMouseX;
@@ -52,6 +69,7 @@ public class NodeEditor extends MinWindowType {
     private double rCameraX;
     private double rCameraY;
     private Button runButton;
+    private Button nextButton;
     private final EventHandler<MouseEvent> pressHandler = event -> {
         if (event.isMiddleButtonDown()) {
             rMouseX = event.getX();
@@ -125,6 +143,8 @@ public class NodeEditor extends MinWindowType {
             verticalLines.get(i).setEndX((cameraX % (VERTICAL_LINE_COUNT * LINE_SPACING * 0.02)) + i * LINE_SPACING * cameraScale);
         }
     };
+    private RunCode runCode;
+    private RunACode runACode;
 
     public NodeEditor(Group root, Group baseGroup, Group topBase, Rectangle background) {
         super(root, baseGroup, topBase, background);
@@ -132,6 +152,8 @@ public class NodeEditor extends MinWindowType {
     }
 
     public void init() {
+        this.connectingLineGroup = new Group();
+        this.connectingDataLineGroup = new Group();
         this.title = "节点编辑器";
         this.background.setFill(BG_COLOR);
         for (int i = 0; i < HORIZONTAL_LINE_COUNT; i++) {
@@ -166,12 +188,75 @@ public class NodeEditor extends MinWindowType {
         this.runButton = new Button(this.startX + this.getEditorNameWidth() + 30, this.startY + MinWindow.PADDING + 15.0, this.startX + this.getEditorNameWidth() + 50, this.startY + MinWindow.PADDING + 35.0);
         this.runButton.addTo(this.topBase);
         this.runButton.background.setOnMouseClicked(event -> {
-            this.runButton.setData(true);
-            for (NodeCtr nodeCtr : this.nodesCtr) {
-                nodeCtr.runCard();
+            if (!(Boolean) this.runButton.getData()) {
+                this.runCode = new RunCode(this.runButton, this.nodesCtr);
+                new Thread(this.runCode).start();
+            } else {
+                runButton.setData(false);
+                runButton.resetImage(
+                        new Image(Objects.requireNonNull(getClass().getResourceAsStream(
+                                "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Run.png"
+                        )))
+                );
+                if (this.runCode != null)
+                    this.runCode.cancel();
+                if (this.runACode != null)
+                    this.runACode.cancel();
+                this.runNodectr = null;
+                for (Node node : this.nodes) {
+                    node.backgroundBorder.setFill(Node.CARD_BORDER_COLOR);
+                }
             }
-            this.runButton.setData(false);
         });
+        this.nextButton = new Button(this.startX + this.getEditorNameWidth() + 50, this.startY + MinWindow.PADDING + 15.0, this.startX + this.getEditorNameWidth() + 70, this.startY + MinWindow.PADDING + 35.0);
+        this.nextButton.resetImage(new Image(Objects.requireNonNull(this.getClass().getResourceAsStream("/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/next.png"))));
+        this.nextButton.addTo(this.topBase);
+        this.nextButton.background.setOnMouseClicked(event -> {
+            this.nextButton.setData(true);
+            if (!(Boolean) this.runButton.getData()) {
+                for (NodeCtr nodectr : nodesCtr) {
+                    if (nodectr.node.name.equals(NodeTopBarColor.START_NODE_TITLE)) {
+                        this.runNodectr = nodectr;
+                        break;
+                    }
+                }
+                if (this.runNodectr == null) {
+                    System.out.println("没有程序入口点");
+                    return;
+                } else {
+                    runButton.setData(true);
+                    runButton.resetImage(
+                            new Image(Objects.requireNonNull(getClass().getResourceAsStream(
+                                    "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Stop.png"
+                            )))
+                    );
+                    this.runNodectr.node.backgroundBorder.setFill(Node.RUNNING_COLOR);
+                }
+            } else {
+                this.runACode = new RunACode(this.runNodectr);
+                new Thread(this.runACode).start();
+                if (this.runNodectr.node.nextNode != null) {
+                    for (NodeCtr nc : this.nodesCtr) {
+                        if (nc.node == this.runNodectr.node.nextNode) {
+                            this.runNodectr = nc;
+                            break;
+                        }
+                    }
+                } else {
+                    runButton.setData(false);
+                    runButton.resetImage(
+                            new Image(Objects.requireNonNull(getClass().getResourceAsStream(
+                                    "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Run.png"
+                            )))
+                    );
+                    this.runNodectr = null;
+                }
+            }
+            this.nextButton.setData(false);
+        });
+
+        this.base.getChildren().add(this.connectingLineGroup);
+        this.base.getChildren().add(this.connectingDataLineGroup);
 
 //        this.nodes.add(new Node(100.0, 100.0, this.base, "测试节点-Test node", new ArrayList<>(), Arrays.asList(
 //                new Node.NodeCardNode("测试字节型参数A-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.BYTE, true, null, (byte) 0),
@@ -396,18 +481,12 @@ public class NodeEditor extends MinWindowType {
 //        ), Color.BLUE));
 
         this.addCard(InputNodes.MAIN.nodeCtr.createNew(100, 100, this.base));
-
-        this.connectingLines.add(
-                new ConnectingLine(
-                        100, 100,
-                        300, 300,
-                        Color.BLUE
-                )
-        );
-
-        for (ConnectingLine connectingLine : connectingLines) {
-            connectingLine.addTo(this.base);
-        }
+//        this.addCard(InputNodes.PRINT.nodeCtr.createNew(100, 100, this.base));
+//        this.addCard(InputNodes.PRINT.nodeCtr.createNew(100, 100, this.base));
+//        this.addCard(InputNodes.PRINT.nodeCtr.createNew(100, 100, this.base));
+//        this.addCard(InputNodes.LIST_GET.nodeCtr.createNew(100, 100, this.base));
+//        this.addCard(InputNodes.LIST_GET.nodeCtr.createNew(100, 100, this.base));
+//        this.addCard(InputNodes.LIST_GET.nodeCtr.createNew(100, 100, this.base));
 
     }
 
@@ -416,14 +495,83 @@ public class NodeEditor extends MinWindowType {
         this.nodes.add(nodeCtr.node);
     }
 
+    public void addConnectingLine(ConnectingLine connectingLine) {
+        connectingLine.resetColor(Node.EXECUTE_ORDER_COLOR, Node.EXECUTE_ORDER_COLOR);
+        this.executeLine.add(connectingLine);
+        connectingLine.addTo(this.connectingLineGroup);
+    }
+
+    public void addConnectingDataLine(ConnectingLine connectingLine, Color startColor, Color endColor) {
+        connectingLine.resetColor(startColor, endColor);
+        this.dataLine.add(connectingLine);
+        connectingLine.addTo(this.connectingDataLineGroup);
+    }
+
+    public void removeConnectingLine(ConnectingLine connectingLine) {
+        for (Node node : this.nodes) {
+            if (node.leftRunLine == connectingLine) {
+                node.leftRunLine = null;
+            }
+            if (node.rightRunLine == connectingLine) {
+                node.rightRunLine = null;
+                node.nextNode = null;
+            }
+        }
+        connectingLine.delete();
+    }
+
+    public void removeConnectingDataLine(ConnectingLine connectingLine) {
+        for (Node node : this.nodes) {
+            if (node.leftDataLines.contains(connectingLine)) {
+                node.leftDataPointList.set(node.leftDataLines.indexOf(connectingLine), null);
+                node.leftDataLines.set(node.leftDataLines.indexOf(connectingLine), null);
+                node.leftCardNodes.get(node.leftDataLines.indexOf(connectingLine)).edit.setVisible(true);
+            }
+            for (List<ConnectingLine> cl : node.rightDataLines) {
+                cl.remove(connectingLine);
+            }
+        }
+        connectingLine.delete();
+    }
+
+    public void testConnectingLine(Node node) {
+        Node rNode = node;
+        while (rNode != null) {
+            if (rNode.rightRunLine != null) {
+                rNode.rightRunLine.resetColor(Node.EXECUTE_ORDER_COLOR, Node.EXECUTE_ORDER_COLOR);
+            }
+            if (rNode.nextNode == node) {
+                // 发现循环
+                Node r = node.nextNode;
+                while (r != node) {
+                    r.rightRunLine.resetColor(ERROR_COLOR, ERROR_COLOR);
+                    r.leftRunLine.resetColor(ERROR_COLOR, ERROR_COLOR);
+                    r = r.nextNode;
+                }
+                return;
+            }
+            rNode = rNode.nextNode;
+        }
+    }
+
+    public void setConnectingLine(ConnectingLine connectingLine) {
+        if (this.connectingLine != null) {
+            this.connectingLine.delete();
+        }
+        this.connectingLine = connectingLine;
+        this.connectingLine.addTo(this.base);
+    }
+
     public void resetPos(float x, float y) {
         super.resetPosSuper(x, y);
         this.runButton.resetPos(this.startX + this.getEditorNameWidth() + 30, this.startY + MinWindow.PADDING + 15.0);
+        this.nextButton.resetPos(this.startX + this.getEditorNameWidth() + 50, this.startY + MinWindow.PADDING + 15.0);
     }
 
     public void resetSize(float width, float height) {
         super.resetSizeSuper(width, height);
         this.runButton.resetPos(this.startX + this.getEditorNameWidth() + 30, this.startY + MinWindow.PADDING + 15.0);
+        this.nextButton.resetPos(this.startX + this.getEditorNameWidth() + 50, this.startY + MinWindow.PADDING + 15.0);
     }
 
     @Override
@@ -442,8 +590,11 @@ public class NodeEditor extends MinWindowType {
             node.delete();
         }
         this.runButton.delete();
+        this.nextButton.delete();
         this.horizontalLines.clear();
         this.verticalLines.clear();
+        this.connectingLineGroup.getChildren().clear();
+        this.connectingDataLineGroup.getChildren().clear();
         this.background.removeEventHandler(MouseEvent.MOUSE_PRESSED, pressHandler);
         this.background.removeEventHandler(MouseEvent.MOUSE_DRAGGED, dragHandler);
         this.background.removeEventHandler(MouseEvent.MOUSE_RELEASED, releaseHandler);
@@ -453,6 +604,88 @@ public class NodeEditor extends MinWindowType {
 
     private double getEditorNameWidth() {
         return (new Text(this.title)).getLayoutBounds().getWidth() + 8.0;
+    }
+
+    public static class RunACode extends Task<Void> {
+
+        private final NodeCtr nc;
+
+        public RunACode(NodeCtr nc) {
+            this.nc = nc;
+        }
+
+        @Override
+        protected Void call() {
+            nc.runCard();
+            Platform.runLater(nc::setRunningColorToNext);
+            return null;
+        }
+
+    }
+
+    public static class RunCode extends Task<Void> {
+        private final Button runButton;
+        private final List<NodeCtr> nodesCtr;
+
+        public RunCode(Button runButton, List<NodeCtr> nodesCtr) {
+            this.runButton = runButton;
+            this.nodesCtr = nodesCtr;
+        }
+
+        @Override
+        protected Void call() {
+            Platform.runLater(() -> {
+                runButton.setData(true);
+                runButton.resetImage(
+                        new Image(Objects.requireNonNull(getClass().getResourceAsStream(
+                                "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Stop.png"
+                        )))
+                );
+            });
+
+            NodeCtr nc = null;
+            for (NodeCtr nodectr : nodesCtr) {
+                if (nodectr.node.name.equals(NodeTopBarColor.START_NODE_TITLE)) {
+                    nc = nodectr;
+                    break;
+                }
+            }
+
+            if (nc != null) {
+                NodeCtr finalNc = nc;
+                Platform.runLater(() -> finalNc.node.backgroundBorder.setFill(Node.RUNNING_COLOR));
+                do {
+                    nc.runCard();
+                    Platform.runLater(nc::setRunningColorToNext);
+
+                    if (nc.node.nextNode == null) break;
+
+                    NodeCtr nextNodeCtr = null;
+                    for (NodeCtr nodectr : nodesCtr) {
+                        if (nodectr.node == nc.node.nextNode) {
+                            nextNodeCtr = nodectr;
+                            break;
+                        }
+                    }
+
+                    if (nextNodeCtr == null) break;
+                    nc = nextNodeCtr;
+                } while (true);
+            } else {
+                Platform.runLater(() -> System.out.println("没有程序入口点"));
+            }
+            Platform.runLater(() -> {
+                runButton.setData(false);
+                runButton.resetImage(
+                        new Image(Objects.requireNonNull(getClass().getResourceAsStream(
+                                "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Run.png"
+                        )))
+                );
+            });
+
+            return null;
+        }
+
     }
 
 }

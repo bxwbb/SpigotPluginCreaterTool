@@ -9,6 +9,7 @@ import javafx.scene.shape.*;
 import javafx.scene.text.Text;
 import org.bxwbb.spigotplugincreatertool.HelloApplication;
 import org.bxwbb.spigotplugincreatertool.MinWindow;
+import org.bxwbb.spigotplugincreatertool.MinWindowType;
 import org.bxwbb.spigotplugincreatertool.windowLabel.*;
 
 import java.util.ArrayList;
@@ -28,7 +29,11 @@ public class Node {
     // 卡片阴影效果半径
     public static float CARD_SHADOW_RADIUS = 30.0f;
     // 执行顺序连接节点颜色
-    public static Color EXECUTE_ORDER_COLOR = Color.rgb(67, 160, 71);
+    public static Color EXECUTE_ORDER_COLOR = Color.rgb(118, 255, 3);
+    // 运行时颜色(偏绿)
+    public static Color RUNNING_COLOR = Color.rgb(118, 255, 118);
+    // 列表等泛型类型高度是元素泛型的高度倍数
+    public static float LIST_GENERIC_HEIGHT_MULTIPLE = 3f;
 
     public double startX;
     public double startY;
@@ -54,10 +59,21 @@ public class Node {
     public Polygon leftRunLineInput;
     public Polygon rightRunLineOutput;
     public Color topBarColor;
+    // 左顺序节点连接线
+    public ConnectingLine leftRunLine;
+    // 右顺序节点连接线
+    public ConnectingLine rightRunLine;
+    public Node nextNode;
+    public Node lastNode;
+    public List<ConnectingLine> leftDataLines = new ArrayList<>();
+    public List<DataLinePoint> leftDataPointList = new ArrayList<>();
+    public List<List<ConnectingLine>> rightDataLines = new ArrayList<>();
+    public boolean rightRunLineB;
+    public boolean leftRunLineB;
 
     private double rMouseX, rMouseY;
 
-    public Node(double startX, double startY, Group root, String name, List<String> lore, List<NodeCardNode> leftCardNodes, List<NodeCardNode> rightCardNodes, Color topBarColor) {
+    public Node(double startX, double startY, Group root, String name, List<String> lore, List<NodeCardNode> leftCardNodes, List<NodeCardNode> rightCardNodes, Color topBarColor, boolean leftRunLineB, boolean rightRunLineB) {
         this.startX = startX;
         this.startY = startY;
         this.endX = startX + 40 + (new Text(name).getLayoutBounds().getWidth() + 50);
@@ -65,6 +81,8 @@ public class Node {
         this.root = root;
         this.name = name;
         this.lore = lore;
+        this.leftRunLineB = leftRunLineB;
+        this.rightRunLineB = rightRunLineB;
         this.leftGroup = new Group();
         this.rightGroup = new Group();
         this.leftCardNodes = leftCardNodes;
@@ -83,6 +101,15 @@ public class Node {
             this.leftCardNodes.get(i).resetPos((float) startX - 1, (float) ((float) endY + rNextHeight), startX, endX - startX);
             if (this.leftCardNodes.get(i).edit != null)
                 this.leftCardNodes.get(i).edit.autoWidth();
+            for (javafx.scene.Node shape : this.leftCardNodes.get(i).point.getChildren()) {
+                int finalI = i;
+                int finalI1 = i;
+                shape.setOnMousePressed(event -> {
+                    this.addDataLine((Color) ((Circle) this.leftCardNodes.get(finalI).point.getChildren().getFirst()).getFill(), this.leftCardNodes.get(finalI1).point.getChildren().getFirst().getLayoutX(), this.leftCardNodes.get(finalI1).point.getChildren().getFirst().getLayoutY(), true, this.leftCardNodes.get(finalI));
+                });
+            }
+            this.leftDataLines.add(null);
+            this.leftDataPointList.add(null);
             this.leftCardNodes.get(i).addTo(leftGroup);
         }
         for (int i = 0; i < this.leftCardNodes.size(); i++) {
@@ -95,6 +122,14 @@ public class Node {
         for (int i = 0; i < this.rightCardNodes.size(); i++) {
             rNextHeight += i == 0 ? 0 : this.rightCardNodes.get(i - 1).getNextHeight();
             this.rightCardNodes.get(i).resetPos((float) endX + 1, (float) ((float) startY + 45 + rNextHeight), startX, endX - startX);
+            for (javafx.scene.Node shape : this.rightCardNodes.get(i).point.getChildren()) {
+                int finalI = i;
+                int finalI1 = i;
+                shape.setOnMousePressed(event -> {
+                    this.addDataLine((Color) ((Circle) this.rightCardNodes.get(finalI).point.getChildren().getFirst()).getFill(), this.rightCardNodes.get(finalI1).point.getChildren().getFirst().getLayoutX(), this.rightCardNodes.get(finalI1).point.getChildren().getFirst().getLayoutY(), false, this.rightCardNodes.get(finalI));
+                });
+            }
+            this.rightDataLines.add(new ArrayList<>());
             this.rightCardNodes.get(i).addTo(rightGroup);
         }
         this.leftMask = new Rectangle(startX - 20, startY, endX - startX + 20, endY - startY);
@@ -167,6 +202,25 @@ public class Node {
         this.leftRunLineInput.setFill(EXECUTE_ORDER_COLOR);
         this.leftRunLineInput.setStrokeWidth(1.5);
         this.leftRunLineInput.setStroke(CARD_BORDER_COLOR);
+        this.leftRunLineInput.setOnMousePressed(event -> {
+            if (HelloApplication.cancelWindow.minWindowType.getType().equals(MinWindowType.MinWindowTypeEnum.NodeEditorType)) {
+                NodeEditor nodeEditor = (NodeEditor) HelloApplication.cancelWindow.minWindowType;
+                if (!nodeEditor.userConnectingLine) {
+                    nodeEditor.userConnectingLine = true;
+                    nodeEditor.focusNode = this;
+                    HelloApplication.isConnectingInput = true;
+                    nodeEditor.setConnectingLine(new ConnectingLine(
+                            event.getX(), event.getY(),
+                            this.startX + 10, this.startY + 15,
+                            HelloApplication.HOVER_COLOR,
+                            this.EXECUTE_ORDER_COLOR
+                    ));
+                }
+            }
+        });
+        if (!this.leftRunLineB) {
+            this.leftRunLineInput.setVisible(false);
+        }
         this.rightRunLineOutput = new Polygon();
         this.rightRunLineOutput.getPoints().addAll(
                 0.0 + this.endX - 20, 0.0 + this.startY + 5,
@@ -175,6 +229,25 @@ public class Node {
         this.rightRunLineOutput.setFill(EXECUTE_ORDER_COLOR);
         this.rightRunLineOutput.setStrokeWidth(1.5);
         this.rightRunLineOutput.setStroke(CARD_BORDER_COLOR);
+        this.rightRunLineOutput.setOnMousePressed(event -> {
+            if (HelloApplication.cancelWindow.minWindowType.getType().equals(MinWindowType.MinWindowTypeEnum.NodeEditorType)) {
+                NodeEditor nodeEditor = (NodeEditor) HelloApplication.cancelWindow.minWindowType;
+                if (!nodeEditor.userConnectingLine) {
+                    nodeEditor.userConnectingLine = true;
+                    nodeEditor.focusNode = this;
+                    HelloApplication.isConnectingInput = false;
+                    nodeEditor.setConnectingLine(new ConnectingLine(
+                            this.endX - 15, this.startY + 15,
+                            event.getX(), event.getY(),
+                            this.EXECUTE_ORDER_COLOR,
+                            HelloApplication.HOVER_COLOR
+                    ));
+                }
+            }
+        });
+        if (!this.rightRunLineB) {
+            this.rightRunLineOutput.setVisible(false);
+        }
         this.hideTitle = new Text();
         this.hideTitle.setFont(HelloApplication.TEXT_FONT);
         this.hideTitle.setFill(HelloApplication.FONT_COLOR);
@@ -202,7 +275,18 @@ public class Node {
         this.resetPos((float) this.startX, (float) this.startY);
     }
 
-    public Node createNew(double x,double y, Group root) {
+    public void updateInput() {
+        for (int i = 0; i < this.leftDataPointList.size(); i++) {
+            if (this.leftDataPointList.get(i) == null) {
+                this.leftCardNodes.get(i).edit.setVisible(true);
+            } else {
+                this.leftCardNodes.get(i).edit.setVisible(false);
+                this.leftCardNodes.get(i).edit.setData(this.leftDataPointList.get(i).getData());
+            }
+        }
+    }
+
+    public Node createNew(double x, double y, Group root) {
         List<NodeCardNode> lcn = new ArrayList<NodeCardNode>();
         for (NodeCardNode n : this.leftCardNodes) {
             lcn.add(n.createNew());
@@ -211,7 +295,7 @@ public class Node {
         for (NodeCardNode n : this.rightCardNodes) {
             rcn.add(n.createNew());
         }
-        return new Node(x, y, root, this.name, this.lore, lcn, rcn, this.topBarColor);
+        return new Node(x, y, root, this.name, this.lore, lcn, rcn, this.topBarColor, this.leftRunLineB, this.rightRunLineB);
     }
 
     public void delete() {
@@ -264,17 +348,28 @@ public class Node {
         for (int i = 0; i < this.leftCardNodes.size(); i++) {
             rNextHeight += i == 0 ? (this.rightCardNodes.isEmpty() ? 0 : this.rightCardNodes.getLast().getNextHeight()) : this.leftCardNodes.get(i - 1).getNextHeight();
             this.leftCardNodes.get(i).resetPos((float) startX - 1, (float) ((float) rY + rNextHeight), startX, endX - startX);
+            if (this.leftDataLines.get(i) != null)
+                this.leftDataLines.get(i).resetSize(startX - 1, rY + rNextHeight);
         }
         rNextHeight = 0;
         for (int i = 0; i < this.rightCardNodes.size(); i++) {
             rNextHeight += i == 0 ? 0 : this.rightCardNodes.get(i - 1).getNextHeight();
             this.rightCardNodes.get(i).resetPos((float) endX + 1, (float) ((float) startY + 45 + rNextHeight), startX, endX - startX);
+            if (this.rightDataLines.get(i) != null) {
+                for (ConnectingLine cl : this.rightDataLines.get(i)) {
+                    cl.resetPos(endX + 1, (startY + 45 + rNextHeight));
+                }
+            }
         }
         this.leftMask.setX(startX - 20);
         this.leftMask.setY(startY);
         this.rightMask.setX(startX);
         this.rightMask.setY(startY);
         this.base.setClip(getBaseMask());
+        if (leftRunLine != null)
+            this.leftRunLine.resetSize(this.startX + 10, this.startY + 15);
+        if (rightRunLine != null)
+            this.rightRunLine.resetPos(this.endX - 15, this.startY + 15);
     }
 
     public void resetSize(float width, float height) {
@@ -287,13 +382,20 @@ public class Node {
         }
         double rNextHeight = 0;
         for (int i = 0; i < this.leftCardNodes.size(); i++) {
-            rNextHeight += i == 0 ? this.rightCardNodes.getLast().getNextHeight() : this.leftCardNodes.get(i - 1).getNextHeight();
+            rNextHeight += i == 0 ? this.leftCardNodes.getLast().getNextHeight() : this.leftCardNodes.get(i - 1).getNextHeight();
             this.leftCardNodes.get(i).resetPos((float) startX - 1, (float) ((float) rY + rNextHeight), startX, endX - startX);
+            if (this.leftDataLines.get(i) != null)
+                this.leftDataLines.get(i).resetSize(startX - 1, rY + rNextHeight);
         }
         rNextHeight = 0;
         for (int i = 0; i < this.rightCardNodes.size(); i++) {
             rNextHeight += i == 0 ? 0 : this.rightCardNodes.get(i - 1).getNextHeight();
             this.rightCardNodes.get(i).resetPos((float) endX + 1, (float) ((float) startY + 45 + rNextHeight), startX, endX - startX);
+            if (this.rightDataLines.get(i) != null) {
+                for (ConnectingLine cl : this.rightDataLines.get(i)) {
+                    cl.resetPos(endX + 1, (startY + 45 + rNextHeight));
+                }
+            }
         }
         for (NodeCardNode nodeCardNode : this.leftCardNodes) {
             if (nodeCardNode.edit != null)
@@ -325,6 +427,10 @@ public class Node {
         this.rightMask.setWidth(endX - startX + 20);
         this.rightMask.setHeight(endY - startY);
         this.base.setClip(getBaseMask());
+        if (leftRunLine != null)
+            this.leftRunLine.resetSize(this.startX + 10, this.startY + 15);
+        if (rightRunLine != null)
+            this.rightRunLine.resetPos(this.endX - 15, this.startY + 15);
     }
 
     private Rectangle getBaseMask() {
@@ -370,7 +476,7 @@ public class Node {
                     bl.add(baseLabel.createNew());
                 }
             }
-            return new NodeCardNode(this.name, this.lore, this.varType, this.rightText, this.args, bl);
+            return new NodeCardNode(this.name, this.lore, this.varType, this.rightText, this.args, this.varType.equals(VarType.LIST) ? bl : d);
         }
 
         public void addTo(Group root) {
@@ -410,7 +516,7 @@ public class Node {
         }
 
         public double getNextHeight() {
-            return Node.getNextHeight(this.varType);
+            return Node.getNextHeight(this.varType, this.args);
         }
 
         public void delete() {
@@ -422,12 +528,18 @@ public class Node {
 
     }
 
-    public static double getNextHeight(VarType varType) {
-        return switch (varType) {
-            case BYTE, SHORT, INT, LONG, FLOAT, DOUBLE, BOOLEAN, CHAR -> 30;
-            case STRING -> 50;
-            case LIST -> 100;
-        };
+    public static double getNextHeight(VarType varType, List<VarType> args) {
+        switch (varType) {
+            case BYTE, SHORT, INT, LONG, FLOAT, DOUBLE, BOOLEAN, CHAR, OBJECT:
+                return 30;
+            case STRING:
+                return 50;
+            case LIST:
+                List<VarType> lv = new ArrayList<>(args);
+                return getNextHeight(args.getFirst(), lv) * LIST_GENERIC_HEIGHT_MULTIPLE;
+            default:
+                return 0;
+        }
     }
 
     public enum VarType {
@@ -440,11 +552,12 @@ public class Node {
         BOOLEAN,
         CHAR,
         STRING,
-        LIST;
+        LIST,
+        OBJECT;
 
         public Group getShape1(List<VarType> args) {
             Group group = new Group();
-            Shape shape;
+            Shape shape = null;
             Shape shape2;
             VarType rVarType;
             List<VarType> argCopy;
@@ -454,74 +567,72 @@ public class Node {
                     shape.setFill(Color.rgb(60, 180, 75));
                     shape.setStrokeWidth(1.5f);
                     shape.setStroke(CARD_BORDER_COLOR);
-                    group.getChildren().add(shape);
                     break;
                 case SHORT:
                     shape = new Circle(0.0, 0.0, 7.0);
                     shape.setFill(Color.rgb(100, 149, 237));
                     shape.setStrokeWidth(1.5f);
                     shape.setStroke(CARD_BORDER_COLOR);
-                    group.getChildren().add(shape);
                     break;
                 case INT:
                     shape = new Circle(0.0, 0.0, 7.0);
                     shape.setFill(Color.rgb(0, 135, 81));
                     shape.setStrokeWidth(1.5f);
                     shape.setStroke(CARD_BORDER_COLOR);
-                    group.getChildren().add(shape);
                     break;
                 case LONG:
                     shape = new Circle(0.0, 0.0, 7.0);
                     shape.setFill(Color.rgb(0, 0, 255));
                     shape.setStrokeWidth(1.5f);
                     shape.setStroke(CARD_BORDER_COLOR);
-                    group.getChildren().add(shape);
                     break;
                 case FLOAT:
                     shape = new Circle(0.0, 0.0, 7.0);
                     shape.setFill(Color.rgb(255, 191, 0));
                     shape.setStrokeWidth(1.5f);
                     shape.setStroke(CARD_BORDER_COLOR);
-                    group.getChildren().add(shape);
                     break;
                 case DOUBLE:
                     shape = new Circle(0.0, 0.0, 7.0);
                     shape.setFill(Color.rgb(255, 140, 0));
                     shape.setStrokeWidth(1.5f);
                     shape.setStroke(CARD_BORDER_COLOR);
-                    group.getChildren().add(shape);
                     break;
                 case BOOLEAN:
                     shape = new Rectangle(0.0, 0.0, 14.0, 14.0);
                     shape.setFill(Color.rgb(153, 102, 255));
                     shape.setStrokeWidth(1.5f);
                     shape.setStroke(CARD_BORDER_COLOR);
-                    group.getChildren().add(shape);
                     break;
                 case CHAR:
                     shape = new Circle(0.0, 0.0, 7.0);
                     shape.setFill(Color.rgb(255, 69, 0));
                     shape.setStrokeWidth(1.5f);
                     shape.setStroke(CARD_BORDER_COLOR);
-                    group.getChildren().add(shape);
                     break;
                 case STRING:
                     shape = new Circle(0.0, 0.0, 7.0);
                     shape.setFill(Color.rgb(147, 112, 219));
                     shape.setStrokeWidth(1.5f);
                     shape.setStroke(CARD_BORDER_COLOR);
-                    group.getChildren().add(shape);
                     break;
                 case LIST:
                     argCopy = new ArrayList<>(args);
                     rVarType = argCopy.getFirst();
                     argCopy.removeFirst();
                     group = rVarType.getShape1(argCopy);
-                    shape2 = new Circle(0.0,0.0,3.0);
+                    shape2 = new Circle(0.0, 0.0, 3.0);
                     shape2.setFill(CARD_BORDER_COLOR);
                     group.getChildren().add(shape2);
                     break;
+                case OBJECT:
+                    shape = new Circle(0.0, 0.0, 7.0);
+                    shape.setFill(Color.rgb(200, 200, 200));
+                    shape.setStrokeWidth(1.5f);
+                    shape.setStroke(CARD_BORDER_COLOR);
+                    break;
             }
+            if (!group.getChildren().contains(shape) && shape != null) group.getChildren().add(shape);
             return group;
         }
 
@@ -540,13 +651,15 @@ public class Node {
                 case LONG ->
                         new SliderLong(0, 0, 10, 10, (long) data, "长整型-Long", List.of("参数描述-Parameter description"), false, false, 0, 0, 1);
                 case BOOLEAN ->
-                        new BooleanInput(0, 0, 10, 10, (boolean) data,"布尔型-Boolean", List.of("参数描述-Parameter description"));
+                        new BooleanInput(0, 0, 10, 10, (boolean) data, "布尔型-Boolean", List.of("参数描述-Parameter description"));
                 case CHAR ->
                         new SliderChar(0, 0, 10, 10, (char) data, "字节型-Byte", List.of("参数描述-Parameter description"), (char) 1);
                 case STRING ->
                         new StringInput(0, 0, 10, 10, "字符串型-String", List.of("参数描述-Parameter description"), (String) data);
                 case LIST ->
                         new ListSlider(0, 0, 10, 10, "长整型列表-Long List", List.of("参数描述-Parameter description"), (List<BaseLabel>) data, VarType.LONG);
+                case OBJECT ->
+                        new ObjectInput(0, 0, 10, 10, data, "对象型-Object", List.of("参数描述-Parameter description"));
             };
             baseLabel.setVisible(rightText);
             if (!rightText) {
@@ -554,6 +667,40 @@ public class Node {
             }
 
             return baseLabel;
+        }
+
+    }
+
+    public void addDataLine(Color startColor, double x, double y, boolean input, NodeCardNode ncn) {
+        if (HelloApplication.cancelWindow.minWindowType.getType().equals(MinWindowType.MinWindowTypeEnum.NodeEditorType)) {
+            NodeEditor nodeEditor = (NodeEditor) HelloApplication.cancelWindow.minWindowType;
+            if (!nodeEditor.userConnectingLine) {
+                nodeEditor.userConnectingLine = true;
+                nodeEditor.focusNode = this;
+                HelloApplication.isConnectingData = true;
+                HelloApplication.isConnectingDataInput = input;
+                nodeEditor.setConnectingLine(new ConnectingLine(
+                        x, y,
+                        x, y,
+                        !input ? startColor : HelloApplication.HOVER_COLOR,
+                        input ? startColor : HelloApplication.HOVER_COLOR
+                ));
+                nodeEditor.focusCardNode = ncn;
+            }
+        }
+    }
+
+    public static class DataLinePoint {
+        public NodeCtr nodeCtr;
+        public int index;
+
+        public DataLinePoint(NodeCtr nodeCtr, int index) {
+            this.nodeCtr = nodeCtr;
+            this.index = index;
+        }
+
+        public Object getData() {
+            return nodeCtr.getOutput(this.index);
         }
 
     }

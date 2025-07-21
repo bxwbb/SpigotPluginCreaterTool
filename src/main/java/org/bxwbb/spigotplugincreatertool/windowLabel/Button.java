@@ -12,7 +12,7 @@ import java.util.Objects;
 public class Button extends BaseLabel {
 
     public final Rectangle background;
-    public final ImageView image;
+    public ImageView image;
     private boolean isDown;
 
     public Button(double startX, double startY, double endX, double endY) {
@@ -26,7 +26,11 @@ public class Button extends BaseLabel {
         this.background.setArcWidth(HelloApplication.ROUNDNESS);
         this.background.setArcHeight(HelloApplication.ROUNDNESS);
         this.background.setStrokeWidth(0.0);
-        this.background.addEventHandler(MouseEvent.MOUSE_ENTERED, event -> this.background.setFill(HelloApplication.HOVER_COLOR));
+        this.background.addEventHandler(MouseEvent.MOUSE_ENTERED, event -> {
+            if (!this.isDown) {
+                this.background.setFill(HelloApplication.HOVER_COLOR);
+            }
+        });
         this.background.addEventHandler(MouseEvent.MOUSE_EXITED, event -> {
             if (!this.isDown) {
                 this.background.setFill(HelloApplication.UNSELECTED_COLOR);
@@ -44,6 +48,10 @@ public class Button extends BaseLabel {
         this.image.setFitWidth(endX - startX - 2);
         this.image.setFitHeight(endY - startY - 2);
         this.isDown = false;
+    }
+
+    public void resetImage(Image image) {
+        this.image.setImage(image);
     }
 
     @Override
@@ -70,6 +78,7 @@ public class Button extends BaseLabel {
 
     @Override
     public void delete() {
+        if (root == null) return;
         this.base.getChildren().clear();
         this.root.getChildren().remove(base);
     }
@@ -77,9 +86,9 @@ public class Button extends BaseLabel {
     @Override
     public void addTo(Group root) {
         this.root = root;
-        this.base.getChildren().add(this.background);
-        this.base.getChildren().add(this.image);
-        this.root.getChildren().add(this.base);
+        if (!this.base.getChildren().contains(this.background)) this.base.getChildren().add(this.background);
+        if (!this.base.getChildren().contains(this.image)) this.base.getChildren().add(this.image);
+        if (!this.root.getChildren().contains(this.base))this.root.getChildren().add(this.base);
     }
 
     @Override
