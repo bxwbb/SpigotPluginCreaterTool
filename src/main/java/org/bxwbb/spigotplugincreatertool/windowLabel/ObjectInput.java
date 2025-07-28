@@ -1,28 +1,29 @@
 package org.bxwbb.spigotplugincreatertool.windowLabel;
 
-import javafx.scene.Cursor;
 import javafx.scene.Group;
-import javafx.scene.input.MouseButton;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Text;
 import org.bxwbb.spigotplugincreatertool.HelloApplication;
+import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.Node;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class ObjectInput extends BaseLabel {
+
     public Object value;
     public String name;
     public List<String> lore;
 
-    private Text title;
+    private final Text title;
     private final Rectangle background;
-    private final Rectangle backgroundBorder;
     private final Rectangle mask;
     private final Text valueText;
+    private final Group baseGroup;
 
     public ObjectInput(double startX, double startY, double endX, double endY, Object value, String name, List<String> lore) {
         this.base = new Group();
+        this.baseGroup = new Group();
         this.value = value;
         this.name = name;
         this.lore = lore;
@@ -30,15 +31,10 @@ public class ObjectInput extends BaseLabel {
         this.startY = startY;
         this.endX = endX;
         this.endY = endY;
-        this.backgroundBorder = new Rectangle(startX - 1, startY - 1, endX - startX + 2, endY - startY + 2);
-        this.backgroundBorder.setArcWidth(HelloApplication.ROUNDNESS);
-        this.backgroundBorder.setArcHeight(HelloApplication.ROUNDNESS);
-        this.backgroundBorder.setStrokeWidth(0.0f);
-        this.backgroundBorder.setFill(HelloApplication.UNSELECTED_BORDER_COLOR);
         this.background = new Rectangle(startX, startY, endX - startX, endY - startY);
         this.background.setFill(HelloApplication.UNSELECTED_COLOR);
-        this.background.setStrokeWidth(0);
-        this.background.setStroke(HelloApplication.UNSELECTED_BORDER_COLOR);
+        this.background.setStrokeWidth(1);
+        this.background.setStroke(HelloApplication.BORDER_COLOR);
         this.background.setArcWidth(HelloApplication.ROUNDNESS);
         this.background.setArcHeight(HelloApplication.ROUNDNESS);
         this.title = new Text(this.name);
@@ -56,7 +52,7 @@ public class ObjectInput extends BaseLabel {
         this.mask = new Rectangle(startX, startY, endX - startX, endY - startY);
         this.mask.setArcWidth(HelloApplication.ROUNDNESS);
         this.mask.setArcHeight(HelloApplication.ROUNDNESS);
-        this.base.setClip(mask);
+        this.baseGroup.setClip(mask);
     }
 
     public void resetPos(double x, double y) {
@@ -64,13 +60,11 @@ public class ObjectInput extends BaseLabel {
         this.endY = endY - startY + y;
         this.startX = x;
         this.startY = y;
-        this.backgroundBorder.setX(startX - 1);
-        this.backgroundBorder.setY(startY - 1);
         this.background.setX(startX);
         this.background.setY(startY);
         this.title.setX(this.startX + 10);
         this.title.setY(this.startY + (this.endY - this.startY) * 0.5 + 5);
-        this.valueText.setX(this.endX - 12  - this.valueText.getLayoutBounds().getWidth());
+        this.valueText.setX(this.endX - 12 - this.valueText.getLayoutBounds().getWidth());
         this.valueText.setY(this.startY + (this.endY - this.startY) * 0.5 + 5);
         this.mask.setX(startX);
         this.mask.setY(startY);
@@ -79,8 +73,6 @@ public class ObjectInput extends BaseLabel {
     public void resetSize(double width, double height) {
         this.endX = startX + width;
         this.endY = startY + height;
-        this.backgroundBorder.setWidth(endX - startX + 2);
-        this.backgroundBorder.setHeight(endY - startY + 2);
         this.background.setWidth(endX - startX);
         this.background.setHeight(endY - startY);
         this.title.setX(this.startX + 10);
@@ -92,17 +84,17 @@ public class ObjectInput extends BaseLabel {
     }
 
     public void delete() {
+        this.baseGroup.getChildren().clear();
         this.base.getChildren().clear();
-        this.root.getChildren().remove(this.backgroundBorder);
         this.root.getChildren().remove(this.base);
     }
 
     public void addTo(Group root) {
         this.root = root;
-        this.root.getChildren().add(this.backgroundBorder);
         this.base.getChildren().add(this.background);
-        this.base.getChildren().add(this.valueText);
-        this.base.getChildren().add(this.title);
+        this.baseGroup.getChildren().add(this.valueText);
+        this.baseGroup.getChildren().add(this.title);
+        this.base.getChildren().add(this.baseGroup);
         this.root.getChildren().add(this.base);
     }
 
@@ -121,7 +113,7 @@ public class ObjectInput extends BaseLabel {
 
     @Override
     public double getHeight() {
-        return this.backgroundBorder.getHeight();
+        return this.background.getHeight();
     }
 
     @Override
@@ -133,6 +125,8 @@ public class ObjectInput extends BaseLabel {
     public void setVisible(boolean visible) {
         this.visible = visible;
         this.background.setMouseTransparent(!visible);
+        this.background.setFill(visible ? HelloApplication.UNSELECTED_COLOR : HelloApplication.DISABLED_COLOR);
+        this.background.setStroke(!visible ? HelloApplication.UNSELECTED_BORDER_COLOR : HelloApplication.BORDER_COLOR);
     }
 
     @Override
@@ -160,6 +154,11 @@ public class ObjectInput extends BaseLabel {
                 this.name,
                 new ArrayList<>(this.lore)
         );
+    }
+
+    @Override
+    public Node.VarType getVarType() {
+        return Node.VarType.OBJECT;
     }
 
 }

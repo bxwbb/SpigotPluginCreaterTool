@@ -1,5 +1,8 @@
 package org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.CodeTool;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -8,6 +11,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class JavaSourceScannerFixed {
+
+    static final Logger logger = LoggerFactory.getLogger(JavaSourceScannerFixed.class);
 
     /**
      * 类类型枚举（外部类6种 + 内部类6种）
@@ -51,7 +56,7 @@ public class JavaSourceScannerFixed {
         File root = new File(path);
 
         if (!root.exists() || !root.isDirectory()) {
-            System.err.println("路径不存在或不是目录: " + path);
+            logger.error("路径不存在或不是目录: {}", path);
             return result;
         }
 
@@ -73,7 +78,7 @@ public class JavaSourceScannerFixed {
                 try {
                     processJavaFile(file, result);
                 } catch (IOException e) {
-                    System.err.println("处理文件失败: " + file.getAbsolutePath() + " - " + e.getMessage());
+                    logger.error("处理文件失败: {} - {}", file.getAbsolutePath(), e.getMessage());
                 }
             }
         }
@@ -120,6 +125,7 @@ public class JavaSourceScannerFixed {
             } else {
                 fullClassName = outerFullClassName + "$" + simpleClassName;
             }
+            logger.trace("尝试查找类 {}", fullClassName);
 
             // 确定类类型
             ClassType classType = determineClassType(typeKeyword, abstractModifier, isTopLevel);
@@ -132,6 +138,7 @@ public class JavaSourceScannerFixed {
                     classType,
                     isTopLevel ? null : outerFullClassName
             ));
+            logger.trace("成功的查找 {}", fullClassName);
         }
     }
 

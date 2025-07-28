@@ -121,6 +121,31 @@
             <artifactId>javaparser-symbol-solver-core</artifactId>
             <version>3.25.10</version>
         </dependency>
+        <dependency>
+            <groupId>com.alibaba.fastjson2</groupId>
+            <artifactId>fastjson2</artifactId>
+            <version>2.0.41</version> <!-- 版本号可根据最新稳定版调整 -->
+        </dependency>
+        <!-- SLF4J 核心 API（日志门面） -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>2.0.9</version> <!-- 最新稳定版本 -->
+        </dependency>
+
+        <!-- Logback 核心实现 -->
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-core</artifactId>
+            <version>1.4.8</version>
+        </dependency>
+
+        <!-- Logback 经典绑定（实现 SLF4J 接口） -->
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>1.4.8</version>
+        </dependency>
     </dependencies>
 
     <build>

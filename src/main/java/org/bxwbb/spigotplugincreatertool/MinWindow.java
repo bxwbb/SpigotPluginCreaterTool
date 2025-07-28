@@ -36,6 +36,7 @@ public class MinWindow {
     public Rectangle menuTextSelectedBackground;
     public Rectangle menuTextHoverBackground;
     public Line topBar;
+    public Line topLine;
     public Text title;
     public Group root;
     public Group base;
@@ -43,7 +44,7 @@ public class MinWindow {
     private boolean isCreating = false;
     private boolean isCreated = false;
 
-    private void initMinWindow(float startX, float startY, float endX, float endY, Group root, MinWindowType.MinWindowTypeEnum type) {
+    private void initMinWindow(float startX, float startY, float endX, float endY, Group root, MinWindowType.MinWindowTypeEnum type) throws ClassNotFoundException {
         this.base = new Group();
         this.topBase = new Group();
         this.root = root;
@@ -127,12 +128,21 @@ public class MinWindow {
                     if (event.getX() <= this.endX - MIN_WIDTH) {
                         if (this.minWindows == null) {
                             this.resetSize(this.endX - this.startX - MIN_WIDTH, this.endY - this.startY);
-                            this.minWindows = new MinWindow(this.endX, this.startY, this.endX + MIN_WIDTH, this.endY, this.root, this.minWindowType.getType());
+                            try {
+                                this.minWindows = new MinWindow(this.endX, this.startY, this.endX + MIN_WIDTH, this.endY, this.root, this.minWindowType.getType());
+                            } catch (ClassNotFoundException e) {
+                                throw new RuntimeException(e);
+                            }
                             this.minWindows.parent = this;
                             this.isCreated = true;
                         } else {
                             this.resetSize(this.endX - this.startX - MIN_WIDTH, this.endY - this.startY);
-                            MinWindow r = new MinWindow(this.endX, this.startY, this.endX + MIN_WIDTH, this.endY, this.root, this.minWindowType.getType());
+                            MinWindow r = null;
+                            try {
+                                r = new MinWindow(this.endX, this.startY, this.endX + MIN_WIDTH, this.endY, this.root, this.minWindowType.getType());
+                            } catch (ClassNotFoundException e) {
+                                throw new RuntimeException(e);
+                            }
                             r.minWindows = this.minWindows;
                             this.minWindows = r;
                             this.isCreated = true;
@@ -143,12 +153,21 @@ public class MinWindow {
                     } else if (event.getY() <= this.endY - MIN_HEIGHT) {
                         if (this.minWindows == null) {
                             this.resetSize(this.endX - this.startX, this.endY - this.startY - MIN_HEIGHT);
-                            this.minWindows = new MinWindow(this.startX, this.endY, this.endX, this.endY + MIN_HEIGHT, this.root, this.minWindowType.getType());
+                            try {
+                                this.minWindows = new MinWindow(this.startX, this.endY, this.endX, this.endY + MIN_HEIGHT, this.root, this.minWindowType.getType());
+                            } catch (ClassNotFoundException e) {
+                                throw new RuntimeException(e);
+                            }
                             this.minWindows.parent = this;
                             this.isCreated = true;
                         } else {
                             this.resetSize(this.endX - this.startX, this.endY - this.startY - MIN_HEIGHT);
-                            MinWindow r = new MinWindow(this.startX, this.endY, this.endX, this.endY + MIN_HEIGHT, this.root, this.minWindowType.getType());
+                            MinWindow r;
+                            try {
+                                r = new MinWindow(this.startX, this.endY, this.endX, this.endY + MIN_HEIGHT, this.root, this.minWindowType.getType());
+                            } catch (ClassNotFoundException e) {
+                                throw new RuntimeException(e);
+                            }
                             r.minWindows = this.minWindows;
                             this.minWindows = r;
                             this.isCreated = true;
@@ -197,12 +216,16 @@ public class MinWindow {
                 this.topBar.setCursor(Cursor.DEFAULT);
             }
         });
+        this.topLine = new Line(startX + PADDING, startY + PADDING + 30, endX - PADDING, startY + PADDING + 30);
+        this.topLine.setStrokeWidth(2.5);
+        this.topLine.setStroke(HelloApplication.BORDER_COLOR);
         this.menuTexts.clear();
         this.menuBackground = new Rectangle();
         this.menuBackground.setFill(HelloApplication.MENU_COLOR);
         this.menuBackground.setArcHeight(HelloApplication.ROUNDNESS);
         this.menuBackground.setArcWidth(HelloApplication.ROUNDNESS);
-        this.menuBackground.setStrokeWidth(0.0f);
+        this.menuBackground.setStrokeWidth(1.0f);
+        this.menuBackground.setStroke(HelloApplication.BORDER_COLOR);
         this.menuBackground.setOnMouseMoved(event -> {
             this.menuTextHoverBackground.setX(HelloApplication.CANCEL_SHOW_OFFSET);
             this.menuTextHoverBackground.setY(HelloApplication.CANCEL_SHOW_OFFSET);
@@ -263,9 +286,11 @@ public class MinWindow {
         this.title.setText(this.minWindowType.title + " ▼");
         this.title.setFill(HelloApplication.FONT_COLOR);
         this.title.setMouseTransparent(true);
-        this.root.getChildren().add(this.menuBackground);
-        this.root.getChildren().add(this.menuTextHoverBackground);
-        this.root.getChildren().add(this.menuTextSelectedBackground);
+        if (this.root != null) {
+            this.root.getChildren().add(this.menuBackground);
+            this.root.getChildren().add(this.menuTextHoverBackground);
+            this.root.getChildren().add(this.menuTextSelectedBackground);
+        }
         for (MinWindowType.MinWindowTypeEnum t : MinWindowType.MinWindowTypeEnum.values()) {
             Text text = getText(t);
             text.setVisible(false);
@@ -278,6 +303,7 @@ public class MinWindow {
         this.topBase.getChildren().addFirst(this.title);
         this.topBase.getChildren().addFirst(this.windowTypeButtonBackground);
         this.topBase.getChildren().addFirst(this.topBar);
+        this.topBase.getChildren().addFirst(this.topLine);
         this.base.setClip(getMask());
         this.topBase.setClip(getMask());
         this.root.getChildren().add(this.topBase);
@@ -296,7 +322,11 @@ public class MinWindow {
         });
         text.setOnMouseClicked(event -> {
             this.minWindowType.delete();
-            this.minWindowType = MinWindowType.MinWindowTypeEnum.createMinWindowType(this.root, this.base, this.topBase, this.background, Objects.requireNonNull(MinWindowType.MinWindowTypeEnum.fondWithName(text.getText())));
+            try {
+                this.minWindowType = MinWindowType.MinWindowTypeEnum.createMinWindowType(this.root, this.base, this.topBase, this.background, Objects.requireNonNull(MinWindowType.MinWindowTypeEnum.fondWithName(text.getText())));
+            } catch (ClassNotFoundException e) {
+                throw new RuntimeException(e);
+            }
             this.minWindowType.resetPos(this.startX, this.startY);
             this.minWindowType.resetSize(this.endX - this.startX, this.endY - this.startY);
             this.isWindowTypeMenuOpening = false;
@@ -322,7 +352,7 @@ public class MinWindow {
         return text;
     }
 
-    public MinWindow(float startX, float startY, float endX, float endY, Group root, MinWindowType.MinWindowTypeEnum type) {
+    public MinWindow(float startX, float startY, float endX, float endY, Group root, MinWindowType.MinWindowTypeEnum type) throws ClassNotFoundException {
         initMinWindow(startX, startY, endX, endY, root, type);
     }
 
@@ -337,6 +367,10 @@ public class MinWindow {
         this.topBar.setStartY(y + PADDING);
         this.topBar.setEndX(endX - PADDING);
         this.topBar.setEndY(y + PADDING);
+        this.topLine.setStartX(x + PADDING);
+        this.topLine.setStartY(y + PADDING + 30);
+        this.topLine.setEndX(endX - PADDING);
+        this.topLine.setEndY(y + PADDING + 30);
         this.windowTypeButtonBackground.setX(x + PADDING + 5.0);
         this.windowTypeButtonBackground.setY(y + PADDING + 5.0);
         this.windowTypeButtonBackground.setWidth(this.title.getLayoutBounds().getWidth() + 8.0);
@@ -376,6 +410,8 @@ public class MinWindow {
         this.background.setHeight(height - PADDING * 2);
         this.topBar.setEndX(endX - PADDING);
         this.topBar.setEndY(startY + PADDING);
+        this.topLine.setEndX(endX - PADDING);
+        this.topLine.setEndY(startY + PADDING + 30);
         this.base.setClip(getMask());
         this.topBase.setClip(getMask());
         this.minWindowType.resetSize(width, height);

@@ -12,6 +12,10 @@ module org.bxwbb.spigotplugincreatertool {
     requires com.almasb.fxgl.all;
     requires com.github.javaparser.core;
     requires com.github.javaparser.symbolsolver.core;
+    requires annotations;
+    requires com.alibaba.fastjson2;
+    requires java.logging;
+    requires org.slf4j;
 
     opens org.bxwbb.spigotplugincreatertool to javafx.fxml;
     exports org.bxwbb.spigotplugincreatertool;

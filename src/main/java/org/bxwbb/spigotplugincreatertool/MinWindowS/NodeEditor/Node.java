@@ -9,6 +9,7 @@ import javafx.scene.shape.*;
 import javafx.scene.text.Text;
 import org.bxwbb.spigotplugincreatertool.HelloApplication;
 import org.bxwbb.spigotplugincreatertool.MinWindow;
+import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.CodeTool.ClassAnalyzer;
 import org.bxwbb.spigotplugincreatertool.MinWindowType;
 import org.bxwbb.spigotplugincreatertool.windowLabel.*;
 
@@ -32,8 +33,6 @@ public class Node {
     public static Color EXECUTE_ORDER_COLOR = Color.rgb(118, 255, 3);
     // 运行时颜色(偏绿)
     public static Color RUNNING_COLOR = Color.rgb(118, 255, 118);
-    // 列表等泛型类型高度是元素泛型的高度倍数
-    public static float LIST_GENERIC_HEIGHT_MULTIPLE = 3f;
 
     public double startX;
     public double startY;
@@ -275,7 +274,7 @@ public class Node {
         this.resetPos((float) this.startX, (float) this.startY);
     }
 
-    public void updateInput() {
+    public void updateInput() throws ClassNotFoundException {
         for (int i = 0; i < this.leftDataPointList.size(); i++) {
             if (this.leftDataPointList.get(i) == null) {
                 this.leftCardNodes.get(i).edit.setVisible(true);
@@ -286,7 +285,7 @@ public class Node {
         }
     }
 
-    public Node createNew(double x, double y, Group root) {
+    public Node createNew(double x, double y, Group root) throws ClassNotFoundException {
         List<NodeCardNode> lcn = new ArrayList<NodeCardNode>();
         for (NodeCardNode n : this.leftCardNodes) {
             lcn.add(n.createNew());
@@ -431,6 +430,7 @@ public class Node {
             this.leftRunLine.resetSize(this.startX + 10, this.startY + 15);
         if (rightRunLine != null)
             this.rightRunLine.resetPos(this.endX - 15, this.startY + 15);
+        this.resetPos((float) this.startX, (float) this.startY);
     }
 
     private Rectangle getBaseMask() {
@@ -448,14 +448,33 @@ public class Node {
         public List<String> lore;
         public Group root;
         public boolean rightText;
-        public final VarType varType;
+        public VarType varType;
+
         private List<VarType> args;
         private Object data;
+        private ClassAnalyzer.ClassInfo classInfo;
 
-        public NodeCardNode(String name, List<String> lore, VarType varType, boolean rightText, List<VarType> args, Object data) {
-            this.point = varType.getShape1(args);
+        public NodeCardNode(String name, List<String> lore, VarType varType, boolean rightText, List<VarType> args, Object data) throws ClassNotFoundException {
+            init(name, lore, varType, rightText, args, data, null);
+        }
+
+        public NodeCardNode(String name, List<String> lore, VarType varType, boolean rightText, List<VarType> args, Object data, ClassAnalyzer.ClassInfo classInfo) throws ClassNotFoundException {
+            init(name, lore, varType, rightText, args, data, classInfo);
+        }
+
+        private void init(String name, List<String> lore, VarType varType, boolean rightText, List<VarType> args, Object data, ClassAnalyzer.ClassInfo classInfo) throws ClassNotFoundException {
+            this.classInfo = classInfo;
+            if (varType.equals(VarType.__DEFAULT__)) {
+                this.point = varType.getShape1(args, classInfo);
+            } else {
+                this.point = varType.getShape1(args);
+            }
             this.rightText = rightText;
-            this.edit = varType.getShape2(this.rightText, data);
+            if (varType.equals(VarType.__DEFAULT__)) {
+                this.edit = varType.getShape2(this.rightText, data, classInfo);
+            } else {
+                this.edit = varType.getShape2(this.rightText, data);
+            }
             if (this.edit != null) {
                 this.edit.setName(name);
             }
@@ -467,7 +486,7 @@ public class Node {
             this.data = data;
         }
 
-        public NodeCardNode createNew() {
+        public NodeCardNode createNew() throws ClassNotFoundException {
             Object d = this.data;
             List<BaseLabel> bl = new ArrayList<>();
             if (this.varType.equals(VarType.LIST)) {
@@ -476,7 +495,7 @@ public class Node {
                     bl.add(baseLabel.createNew());
                 }
             }
-            return new NodeCardNode(this.name, this.lore, this.varType, this.rightText, this.args, this.varType.equals(VarType.LIST) ? bl : d);
+            return new NodeCardNode(this.name, this.lore, this.varType, this.rightText, this.args, this.varType.equals(VarType.LIST) ? bl : d, this.classInfo);
         }
 
         public void addTo(Group root) {
@@ -498,17 +517,8 @@ public class Node {
             }
             if (edit != null) {
                 edit.resetPos((float) (yx + 10), y - 7);
-                edit.resetSize((float) yw - 20, (float) 14);
+                edit.resetSize((float) yw - 20, (float) Node.getLableHieght(this.varType));
             }
-        }
-
-        public void resetSelection(float s) {
-            // 设置缩放
-            this.point.setScaleX(s);
-            this.point.setScaleY(s);
-//            this.edit.setScaleX(s);
-//            this.edit.setScaleY(s);
-            // TODO 缩放
         }
 
         public double getWidth() {
@@ -530,16 +540,24 @@ public class Node {
 
     public static double getNextHeight(VarType varType, List<VarType> args) {
         switch (varType) {
-            case BYTE, SHORT, INT, LONG, FLOAT, DOUBLE, BOOLEAN, CHAR, OBJECT:
-                return 30;
-            case STRING:
-                return 50;
+            case BYTE, SHORT, INT, LONG, FLOAT, DOUBLE, BOOLEAN, CHAR, OBJECT, __DEFAULT__, STRING:
+                return 25;
             case LIST:
-                List<VarType> lv = new ArrayList<>(args);
-                return getNextHeight(args.getFirst(), lv) * LIST_GENERIC_HEIGHT_MULTIPLE;
+                return ListSlider.LIST_LABLE_HEIGHT + 15;
             default:
                 return 0;
         }
+    }
+
+    public static double getLableHieght(VarType varType) {
+        return switch (varType) {
+            case BYTE, SHORT, INT, LONG, FLOAT, DOUBLE, BOOLEAN, CHAR, OBJECT, __DEFAULT__, STRING:
+                yield 14;
+            case LIST:
+                yield ListSlider.LIST_LABLE_HEIGHT;
+            default:
+                yield 0;
+        };
     }
 
     public enum VarType {
@@ -553,9 +571,14 @@ public class Node {
         CHAR,
         STRING,
         LIST,
-        OBJECT;
+        OBJECT,
+        __DEFAULT__;
 
         public Group getShape1(List<VarType> args) {
+            return this.getShape1(args, null);
+        }
+
+        public Group getShape1(List<VarType> args, ClassAnalyzer.ClassInfo classInfo) {
             Group group = new Group();
             Shape shape = null;
             Shape shape2;
@@ -631,12 +654,22 @@ public class Node {
                     shape.setStrokeWidth(1.5f);
                     shape.setStroke(CARD_BORDER_COLOR);
                     break;
+                case __DEFAULT__:
+                    shape = new Circle(0.0, 0.0, 7.0);
+                    shape.setFill(HelloApplication.stringToColor(classInfo.fullClassName));
+                    shape.setStrokeWidth(1.5f);
+                    shape.setStroke(CARD_BORDER_COLOR);
+                    break;
             }
             if (!group.getChildren().contains(shape) && shape != null) group.getChildren().add(shape);
             return group;
         }
 
-        public BaseLabel getShape2(boolean rightText, Object data) {
+        public BaseLabel getShape2(boolean rightText, Object data) throws ClassNotFoundException {
+            return this.getShape2(rightText, data, null);
+        }
+
+        public BaseLabel getShape2(boolean rightText, Object data, ClassAnalyzer.ClassInfo classInfo) throws ClassNotFoundException {
             BaseLabel baseLabel = switch (this) {
                 case FLOAT ->
                         new SliderFloat(0.0, 0.0, 10.0, 10.0, (Float) data, "单精度浮点-Float", List.of("参数描述-Parameter description"), false, false, 0.0f, 0.0f, 0.5f);
@@ -655,11 +688,13 @@ public class Node {
                 case CHAR ->
                         new SliderChar(0, 0, 10, 10, (char) data, "字节型-Byte", List.of("参数描述-Parameter description"), (char) 1);
                 case STRING ->
-                        new StringInput(0, 0, 10, 10, "字符串型-String", List.of("参数描述-Parameter description"), (String) data);
+                        new StringInput(0, 0, 10, 10, (String) data, "字符串型-String", List.of("参数描述-Parameter description"));
                 case LIST ->
                         new ListSlider(0, 0, 10, 10, "长整型列表-Long List", List.of("参数描述-Parameter description"), (List<BaseLabel>) data, VarType.LONG);
                 case OBJECT ->
                         new ObjectInput(0, 0, 10, 10, data, "对象型-Object", List.of("参数描述-Parameter description"));
+                case __DEFAULT__ ->
+                        new DefaultObjectInput(0, 0, 10, 10, data, "未定义型-Default", List.of("参数描述-Parameter description"), classInfo);
             };
             baseLabel.setVisible(rightText);
             if (!rightText) {

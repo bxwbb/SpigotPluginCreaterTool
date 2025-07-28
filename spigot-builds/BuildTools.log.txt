@@ -1,0 +1,7 @@
+[--rev, 1.8.8]
+Loading BuildTools version: git-BuildTools-844940e-193 (#193)
+Java Version: Java 21
+Current Path: F:\McServer\Plugin\SpigotPluginCreaterTool\spigot-builds
+*** Using downloaded git PortableGit-2.45.2-64-bit\PortableGit ***
+*** Please note that this is a beta feature, so if it does not work please also try a manual install of git from https://git-for-windows.github.io/ ***
+Could not successfully run git. Please ensure it is installed and functioning. Error running command, return status !=0: [C:\WINDOWS\system32\cmd.exe, /D, /C, git, --version]

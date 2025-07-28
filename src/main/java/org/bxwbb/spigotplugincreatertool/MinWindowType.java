@@ -2,8 +2,10 @@ package org.bxwbb.spigotplugincreatertool;
 
 import javafx.scene.Group;
 import javafx.scene.shape.Rectangle;
+import javafx.scene.text.Text;
 import org.bxwbb.spigotplugincreatertool.MinWindowS.ItemBarEditor;
 import org.bxwbb.spigotplugincreatertool.MinWindowS.ItemEditor;
+import org.bxwbb.spigotplugincreatertool.MinWindowS.MinecraftServerCreater.MinecraftServerCreater;
 import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.NodeEditor;
 import org.bxwbb.spigotplugincreatertool.MinWindowS.ShowEntityEditor;
 
@@ -26,13 +28,17 @@ public abstract class MinWindowType {
         this.background = background;
     }
 
-    public abstract void init();
+    public abstract void init() throws ClassNotFoundException;
 
     public abstract void resetPos(float x, float y);
 
     public void resetPosSuper(float x, float y) {
         startX = x;
         startY = y;
+    }
+
+    public double getEditorNameWidth() {
+        return (new Text(this.title)).getLayoutBounds().getWidth() + 8.0;
     }
 
     public abstract void resetSize(float width, float height);
@@ -52,7 +58,8 @@ public abstract class MinWindowType {
         // 物品编辑器
         ItemEditorType("物品编辑器"),
         // 展示实体编辑器
-        ShowEntityEditorType("展示实体编辑器");
+        ShowEntityEditorType("展示实体编辑器"),
+        MinecraftServerCreater("我的世界服务器编辑器");
 
         public final String name;
 
@@ -60,12 +67,13 @@ public abstract class MinWindowType {
             this.name = name;
         }
 
-        public static MinWindowType createMinWindowType(Group root, Group base, Group topBase, Rectangle background, MinWindowTypeEnum type) {
+        public static MinWindowType createMinWindowType(Group root, Group base, Group topBase, Rectangle background, MinWindowTypeEnum type) throws ClassNotFoundException {
             return switch (type) {
                 case NodeEditorType -> new NodeEditor(root, base, topBase, background);
                 case ItemBarEditorType -> new ItemBarEditor(root, base, topBase, background);
                 case ItemEditorType -> new ItemEditor(root, base, topBase, background);
                 case ShowEntityEditorType -> new ShowEntityEditor(root, base, topBase, background);
+                case MinecraftServerCreater -> new MinecraftServerCreater(root, base, topBase, background);
             };
         }
 

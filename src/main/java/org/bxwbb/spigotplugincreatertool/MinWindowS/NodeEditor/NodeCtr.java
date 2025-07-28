@@ -41,7 +41,7 @@ public class NodeCtr {
         }
     }
 
-    public NodeCtr createNew(double x, double y, Group root) {
+    public NodeCtr createNew(double x, double y, Group root) throws ClassNotFoundException {
         return new NodeCtr(x, y, this.node.createNew(x, y, root), this.getOutputs, this.methodPath);
     }
 
@@ -49,7 +49,11 @@ public class NodeCtr {
         CountDownLatch latch = new CountDownLatch(1);
         Platform.runLater(() -> {
             try {
-                this.node.updateInput();
+                try {
+                    this.node.updateInput();
+                } catch (ClassNotFoundException e) {
+                    throw new RuntimeException(e);
+                }
             } finally {
                 latch.countDown();
             }
@@ -68,19 +72,37 @@ public class NodeCtr {
         }
         for (int i = 0; i < this.outputTypes.size(); i++) {
             int finalI = i;
-            Platform.runLater(() -> this.node.rightCardNodes.get(finalI).edit.setData(this.getOutputs.get(finalI).apply(inp)));
+            Platform.runLater(() -> {
+                try {
+                    this.node.rightCardNodes.get(finalI).edit.setData(this.getOutputs.get(finalI).apply(inp));
+                } catch (ClassNotFoundException e) {
+                    throw new RuntimeException(e);
+                }
+            });
         }
         Platform.runLater(() -> this.node.resetPos((float) this.node.startX, (float) this.node.startY));
     }
 
     public Object getOutput(int index) {
-        Platform.runLater(() -> this.node.updateInput());
+        Platform.runLater(() -> {
+            try {
+                this.node.updateInput();
+            } catch (ClassNotFoundException e) {
+                throw new RuntimeException(e);
+            }
+        });
         List<NodeInput> inp = new ArrayList<>();
         for (int i = 0; i < this.inputTypes.size(); i++) {
             inp.add(new NodeInput(this.node.leftCardNodes.get(i).edit.getData(), this.inputTypes.get(i)));
         }
         Object result = this.getOutputs.get(index).apply(inp);
-        Platform.runLater(() -> this.node.rightCardNodes.get(index).edit.setData(result));
+        Platform.runLater(() -> {
+            try {
+                this.node.rightCardNodes.get(index).edit.setData(result);
+            } catch (ClassNotFoundException e) {
+                throw new RuntimeException(e);
+            }
+        });
         return result;
     }
 

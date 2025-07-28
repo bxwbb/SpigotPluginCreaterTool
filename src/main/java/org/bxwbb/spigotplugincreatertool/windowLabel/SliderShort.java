@@ -6,11 +6,17 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Text;
 import org.bxwbb.spigotplugincreatertool.HelloApplication;
+import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.Node;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class SliderShort extends BaseLabel {
+
+    static final Logger logger = LoggerFactory.getLogger(SliderShort.class);
+
     public short value;
     public String name;
     public List<String> lore;
@@ -22,7 +28,6 @@ public class SliderShort extends BaseLabel {
 
     private Text title;
     private final Rectangle background;
-    private final Rectangle backgroundBorder;
     private Rectangle SelectedBackground;
     private final Rectangle mask;
     private Text leftAdd;
@@ -31,9 +36,11 @@ public class SliderShort extends BaseLabel {
     private IntegerTextField valueTextField;
     private double rMouseX;
     private boolean isDragging;
+    private final Group baseGroup;
 
     public SliderShort(double startX, double startY, double endX, double endY, short value, String name, List<String> lore, boolean leftBorder, boolean rightBorder, short leftValue, short rightValue, short delta) {
         this.base = new Group();
+        this.baseGroup = new Group();
         this.value = value;
         this.name = name;
         this.lore = lore;
@@ -46,15 +53,10 @@ public class SliderShort extends BaseLabel {
         this.startY = startY;
         this.endX = endX;
         this.endY = endY;
-        this.backgroundBorder = new Rectangle(startX - 1, startY - 1, endX - startX + 2, endY - startY + 2);
-        this.backgroundBorder.setArcWidth(HelloApplication.ROUNDNESS);
-        this.backgroundBorder.setArcHeight(HelloApplication.ROUNDNESS);
-        this.backgroundBorder.setStrokeWidth(0.0f);
-        this.backgroundBorder.setFill(HelloApplication.UNSELECTED_BORDER_COLOR);
         this.background = new Rectangle(startX, startY, endX - startX, endY - startY);
         this.background.setFill(HelloApplication.UNSELECTED_COLOR);
-        this.background.setStrokeWidth(0);
-        this.background.setStroke(HelloApplication.UNSELECTED_BORDER_COLOR);
+        this.background.setStrokeWidth(1);
+        this.background.setStroke(HelloApplication.BORDER_COLOR);
         this.background.setArcWidth(HelloApplication.ROUNDNESS);
         this.background.setArcHeight(HelloApplication.ROUNDNESS);
         this.background.setOnMouseMoved(event -> {
@@ -184,21 +186,17 @@ public class SliderShort extends BaseLabel {
         this.SelectedBackground.setArcHeight(HelloApplication.ROUNDNESS);
         this.SelectedBackground.setStrokeWidth(0.0f);
         this.SelectedBackground.setFill(HelloApplication.SELECTED_COLOR);
-        if (this.leftBorder && this.rightBorder) {
-            this.SelectedBackground.setWidth((double) (this.value - this.leftValue) / (Math.abs(this.rightValue - this.leftValue)) * (this.endX - this.startX));
-        } else {
-            this.SelectedBackground.setWidth(0);
-        }
+        this.SelectedBackground.setWidth((double) (this.value - this.leftValue) / (Math.abs(this.rightValue - this.leftValue)) * (this.endX - this.startX));
         this.SelectedBackground.setMouseTransparent(true);
         this.mask = new Rectangle(startX, startY, endX - startX, endY - startY);
         this.mask.setArcWidth(HelloApplication.ROUNDNESS);
         this.mask.setArcHeight(HelloApplication.ROUNDNESS);
-        this.base.setClip(mask);
+        this.baseGroup.setClip(mask);
         this.valueTextField = new IntegerTextField();
         this.valueTextField.setLayoutX(this.startX + 10);
         this.valueTextField.setLayoutY(this.startY);
         this.valueTextField.setPrefWidth(endX - startX - 22);
-        this.valueTextField.setPrefHeight(endY - startY - 22);
+        this.valueTextField.setPrefHeight(endY - startY);
         this.valueTextField.setStyle(
                 "-fx-background-color: transparent;" +
                         "-fx-background-insets: 0;" +
@@ -219,24 +217,34 @@ public class SliderShort extends BaseLabel {
     }
 
     private void inputDown() {
-        this.value = Short.parseShort(this.valueTextField.getText());
-        if (this.leftBorder) {
-            if (this.value < this.leftValue) {
-                this.value = this.leftValue;
+        try {
+            int r = Integer.parseInt(this.valueTextField.getText());
+            if (r > Short.MAX_VALUE || r < Short.MIN_VALUE) {
+                r = r > Short.MAX_VALUE ? Short.MAX_VALUE : Short.MIN_VALUE;
+                logger.warn("数字超出类型极限,已经钳制输入");
             }
-        }
-        if (this.rightBorder) {
-            if (this.value > this.rightValue) {
-                this.value = this.rightValue;
+            this.value = (short) r;
+            if (this.leftBorder) {
+                if (this.value < this.leftValue) {
+                    this.value = this.leftValue;
+                }
             }
+            if (this.rightBorder) {
+                if (this.value > this.rightValue) {
+                    this.value = this.rightValue;
+                }
+            }
+            if (this.leftBorder && this.rightBorder)
+                this.SelectedBackground.setWidth((double) (this.value - this.leftValue) / (Math.abs(this.rightValue - this.leftValue)) * (this.endX - this.startX));
+            this.valueText.setText(String.valueOf(this.value));
+            this.valueText.setX(this.endX - 12 - this.rightAdd.getLayoutBounds().getWidth() - this.valueText.getLayoutBounds().getWidth());
+            this.title.setVisible(true);
+            this.valueText.setVisible(true);
+            this.valueTextField.setVisible(false);
+            this.valueTextField.setText(String.valueOf(this.value));
+        } catch (NumberFormatException e) {
+            logger.error("输入的数字太大");
         }
-        if (this.leftBorder && this.rightBorder)
-            this.SelectedBackground.setWidth((double) (this.value - this.leftValue) / (Math.abs(this.rightValue - this.leftValue)) * (this.endX - this.startX));
-        this.valueText.setText(String.valueOf(this.value));
-        this.valueText.setX(this.endX - 12 - this.rightAdd.getLayoutBounds().getWidth() - this.valueText.getLayoutBounds().getWidth());
-        this.title.setVisible(true);
-        this.valueText.setVisible(true);
-        this.valueTextField.setVisible(false);
     }
 
     public void resetPos(double x, double y) {
@@ -244,8 +252,6 @@ public class SliderShort extends BaseLabel {
         this.endY = endY - startY + y;
         this.startX = x;
         this.startY = y;
-        this.backgroundBorder.setX(startX - 1);
-        this.backgroundBorder.setY(startY - 1);
         this.background.setX(startX);
         this.background.setY(startY);
         this.leftAdd.setX(this.startX + 5);
@@ -267,8 +273,6 @@ public class SliderShort extends BaseLabel {
     public void resetSize(double width, double height) {
         this.endX = startX + width;
         this.endY = startY + height;
-        this.backgroundBorder.setWidth(endX - startX + 2);
-        this.backgroundBorder.setHeight(endY - startY + 2);
         this.background.setWidth(endX - startX);
         this.background.setHeight(endY - startY);
         this.leftAdd.setFill(HelloApplication.FONT_COLOR);
@@ -286,25 +290,25 @@ public class SliderShort extends BaseLabel {
         this.mask.setWidth(this.endX - this.startX);
         this.mask.setHeight(this.endY - this.startY);
         this.valueTextField.setPrefWidth(endX - startX - 22);
-        this.valueTextField.setPrefHeight(endY - startY - 22);
+        this.valueTextField.setPrefHeight(endY - startY);
     }
 
     public void delete() {
+        this.baseGroup.getChildren().clear();
         this.base.getChildren().clear();
-        this.root.getChildren().remove(this.backgroundBorder);
         this.root.getChildren().remove(this.base);
         this.root.getChildren().remove(this.valueTextField);
     }
 
     public void addTo(Group root) {
         this.root = root;
-        this.root.getChildren().add(this.backgroundBorder);
         this.base.getChildren().add(this.background);
-        this.base.getChildren().add(this.SelectedBackground);
-        this.base.getChildren().add(this.leftAdd);
-        this.base.getChildren().add(this.rightAdd);
-        this.base.getChildren().add(this.valueText);
-        this.base.getChildren().add(this.title);
+        this.baseGroup.getChildren().add(this.SelectedBackground);
+        this.baseGroup.getChildren().add(this.leftAdd);
+        this.baseGroup.getChildren().add(this.rightAdd);
+        this.baseGroup.getChildren().add(this.valueText);
+        this.baseGroup.getChildren().add(this.title);
+        this.base.getChildren().add(this.baseGroup);
         this.root.getChildren().add(this.base);
         this.root.getChildren().add(this.valueTextField);
     }
@@ -324,7 +328,7 @@ public class SliderShort extends BaseLabel {
 
     @Override
     public double getHeight() {
-        return this.backgroundBorder.getHeight();
+        return this.background.getHeight();
     }
 
     @Override
@@ -336,6 +340,8 @@ public class SliderShort extends BaseLabel {
     public void setVisible(boolean visible) {
         this.visible = visible;
         this.background.setMouseTransparent(!visible);
+        this.background.setFill(visible ? HelloApplication.UNSELECTED_COLOR : HelloApplication.DISABLED_COLOR);
+        this.background.setStroke(!visible ? HelloApplication.UNSELECTED_BORDER_COLOR : HelloApplication.BORDER_COLOR);
     }
 
     @Override
@@ -363,6 +369,7 @@ public class SliderShort extends BaseLabel {
         this.title.setVisible(true);
         this.valueText.setVisible(true);
         this.valueTextField.setVisible(false);
+        this.valueTextField.setText(String.valueOf(this.value));
     }
 
     @Override
@@ -381,6 +388,11 @@ public class SliderShort extends BaseLabel {
                 this.rightValue,
                 this.delta
         );
+    }
+
+    @Override
+    public Node.VarType getVarType() {
+        return Node.VarType.SHORT;
     }
 
 }

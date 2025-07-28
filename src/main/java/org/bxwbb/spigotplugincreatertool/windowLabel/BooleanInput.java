@@ -4,6 +4,7 @@ import javafx.scene.Group;
 import javafx.scene.control.CheckBox;
 import javafx.scene.text.Text;
 import org.bxwbb.spigotplugincreatertool.HelloApplication;
+import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.Node;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -108,6 +109,11 @@ public class BooleanInput extends BaseLabel {
     @Override
     public BaseLabel createNew() {
         return new BooleanInput(startX, startY, endX, endY, true, name, new ArrayList<>(lore));
+    }
+
+    @Override
+    public Node.VarType getVarType() {
+        return Node.VarType.BOOLEAN;
     }
 
 }

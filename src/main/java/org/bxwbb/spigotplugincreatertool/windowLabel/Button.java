@@ -6,6 +6,7 @@ import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.shape.Rectangle;
 import org.bxwbb.spigotplugincreatertool.HelloApplication;
+import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.Node;
 
 import java.util.Objects;
 
@@ -13,9 +14,11 @@ public class Button extends BaseLabel {
 
     public final Rectangle background;
     public ImageView image;
-    private boolean isDown;
 
-    public Button(double startX, double startY, double endX, double endY) {
+    private boolean isDown;
+    private final boolean hasBorder;
+
+    public Button(double startX, double startY, double endX, double endY, boolean hasBorder) {
         this.startX = startX;
         this.startY = startY;
         this.endX = endX;
@@ -25,7 +28,9 @@ public class Button extends BaseLabel {
         this.background.setFill(HelloApplication.UNSELECTED_COLOR);
         this.background.setArcWidth(HelloApplication.ROUNDNESS);
         this.background.setArcHeight(HelloApplication.ROUNDNESS);
-        this.background.setStrokeWidth(0.0);
+        this.background.setStrokeWidth(hasBorder ? 1 : 0);
+        this.hasBorder = hasBorder;
+        this.background.setStroke(HelloApplication.BORDER_COLOR);
         this.background.addEventHandler(MouseEvent.MOUSE_ENTERED, event -> {
             if (!this.isDown) {
                 this.background.setFill(HelloApplication.HOVER_COLOR);
@@ -47,6 +52,7 @@ public class Button extends BaseLabel {
         this.image.setPreserveRatio(false);
         this.image.setFitWidth(endX - startX - 2);
         this.image.setFitHeight(endY - startY - 2);
+        this.image.setSmooth(true);
         this.isDown = false;
     }
 
@@ -110,6 +116,8 @@ public class Button extends BaseLabel {
     @Override
     public void setVisible(boolean visible) {
         this.visible = visible;
+        this.background.setFill(visible ? HelloApplication.UNSELECTED_COLOR : HelloApplication.DISABLED_COLOR);
+        this.background.setStroke(!visible ? HelloApplication.UNSELECTED_BORDER_COLOR : HelloApplication.BORDER_COLOR);
     }
 
     @Override
@@ -129,6 +137,11 @@ public class Button extends BaseLabel {
 
     @Override
     public BaseLabel createNew() {
-        return new Button(this.startX, this.startY, this.endX, this.endY);
+        return new Button(this.startX, this.startY, this.endX, this.endY, this.hasBorder);
+    }
+
+    @Override
+    public Node.VarType getVarType() {
+        return null;
     }
 }

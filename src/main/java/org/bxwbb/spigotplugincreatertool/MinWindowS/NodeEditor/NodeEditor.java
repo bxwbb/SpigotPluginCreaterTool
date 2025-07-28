@@ -12,7 +12,6 @@ import javafx.scene.input.ScrollEvent;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Line;
 import javafx.scene.shape.Rectangle;
-import javafx.scene.text.Text;
 import org.bxwbb.spigotplugincreatertool.MinWindow;
 import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.Nodes.InputNodes;
 import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.Nodes.NodeTopBarColor;
@@ -44,7 +43,6 @@ public class NodeEditor extends MinWindowType {
     public double cameraScale = 1.5f;
     public List<Line> horizontalLines = new ArrayList<>();
     public List<Line> verticalLines = new ArrayList<>();
-    public Rectangle r;
     public List<Node> nodes = new ArrayList<>();
     public List<NodeCtr> nodesCtr = new ArrayList<>();
     public ConnectingLine connectingLine;
@@ -59,6 +57,8 @@ public class NodeEditor extends MinWindowType {
     public Node focusNode;
     public NodeCtr runNodectr;
     public Node.NodeCardNode focusCardNode;
+    public Group trueBase;
+
 
     // 临时记录鼠标坐标
     private double rMouseX;
@@ -72,8 +72,6 @@ public class NodeEditor extends MinWindowType {
     private Button nextButton;
     private final EventHandler<MouseEvent> pressHandler = event -> {
         if (event.isMiddleButtonDown()) {
-            rMouseX = event.getX();
-            rMouseY = event.getY();
             rCameraX = cameraX;
             rCameraY = cameraY;
             rrMouseX = event.getX();
@@ -120,9 +118,11 @@ public class NodeEditor extends MinWindowType {
     private final EventHandler<MouseEvent> releaseHandler = event -> this.background.setCursor(Cursor.DEFAULT);
     private final EventHandler<ScrollEvent> scrollHandler = event -> {
         if (event.getDeltaY() > 0.0) {
-            this.cameraScale += 0.25;
+            this.cameraScale += 0.05;
+//            HelloApplication.scaleTo(this.trueBase, this.cameraScale, 0, 0);
         } else {
-            this.cameraScale -= 0.25;
+            this.cameraScale -= 0.05;
+//            HelloApplication.scaleTo(this.trueBase, this.cameraScale, 0, 0);
         }
         if (this.cameraScale <= 1) {
             this.cameraScale = 1;
@@ -143,15 +143,20 @@ public class NodeEditor extends MinWindowType {
             verticalLines.get(i).setEndX((cameraX % (VERTICAL_LINE_COUNT * LINE_SPACING * 0.02)) + i * LINE_SPACING * cameraScale);
         }
     };
+    private final EventHandler<MouseEvent> mpHandler = event -> {
+        this.rMouseX = event.getX();
+        this.rMouseY = event.getY();
+    };
     private RunCode runCode;
     private RunACode runACode;
 
-    public NodeEditor(Group root, Group baseGroup, Group topBase, Rectangle background) {
+    public NodeEditor(Group root, Group baseGroup, Group topBase, Rectangle background) throws ClassNotFoundException {
         super(root, baseGroup, topBase, background);
         init();
     }
 
-    public void init() {
+    public void init() throws ClassNotFoundException {
+        this.trueBase = new Group();
         this.connectingLineGroup = new Group();
         this.connectingDataLineGroup = new Group();
         this.title = "节点编辑器";
@@ -166,7 +171,7 @@ public class NodeEditor extends MinWindowType {
             line.setEndY(i * LINE_SPACING * cameraScale);
             line.setMouseTransparent(true);
             this.horizontalLines.add(line);
-            this.base.getChildren().add(line);
+            this.trueBase.getChildren().add(line);
         }
         for (int i = 0; i < VERTICAL_LINE_COUNT; i++) {
             Line line = new Line();
@@ -178,14 +183,15 @@ public class NodeEditor extends MinWindowType {
             line.setEndY(10000.0);
             line.setMouseTransparent(true);
             this.verticalLines.add(line);
-            this.base.getChildren().add(line);
+            this.trueBase.getChildren().add(line);
         }
         this.background.addEventHandler(MouseEvent.MOUSE_PRESSED, pressHandler);
         this.background.addEventHandler(MouseEvent.MOUSE_DRAGGED, dragHandler);
         this.background.addEventHandler(MouseEvent.MOUSE_RELEASED, releaseHandler);
         this.background.addEventHandler(ScrollEvent.SCROLL, scrollHandler);
+        this.background.addEventHandler(MouseEvent.ANY, mpHandler);
 
-        this.runButton = new Button(this.startX + this.getEditorNameWidth() + 30, this.startY + MinWindow.PADDING + 15.0, this.startX + this.getEditorNameWidth() + 50, this.startY + MinWindow.PADDING + 35.0);
+        this.runButton = new Button(this.startX + this.getEditorNameWidth() + 30, this.startY + MinWindow.PADDING + 15.0, this.startX + this.getEditorNameWidth() + 50, this.startY + MinWindow.PADDING + 35.0, false);
         this.runButton.addTo(this.topBase);
         this.runButton.background.setOnMouseClicked(event -> {
             if (!(Boolean) this.runButton.getData()) {
@@ -208,7 +214,7 @@ public class NodeEditor extends MinWindowType {
                 }
             }
         });
-        this.nextButton = new Button(this.startX + this.getEditorNameWidth() + 50, this.startY + MinWindow.PADDING + 15.0, this.startX + this.getEditorNameWidth() + 70, this.startY + MinWindow.PADDING + 35.0);
+        this.nextButton = new Button(this.startX + this.getEditorNameWidth() + 50, this.startY + MinWindow.PADDING + 15.0, this.startX + this.getEditorNameWidth() + 70, this.startY + MinWindow.PADDING + 35.0, false);
         this.nextButton.resetImage(new Image(Objects.requireNonNull(this.getClass().getResourceAsStream("/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/next.png"))));
         this.nextButton.addTo(this.topBase);
         this.nextButton.background.setOnMouseClicked(event -> {
@@ -255,8 +261,8 @@ public class NodeEditor extends MinWindowType {
             this.nextButton.setData(false);
         });
 
-        this.base.getChildren().add(this.connectingLineGroup);
-        this.base.getChildren().add(this.connectingDataLineGroup);
+        this.trueBase.getChildren().add(this.connectingLineGroup);
+        this.trueBase.getChildren().add(this.connectingDataLineGroup);
 
 //        this.nodes.add(new Node(100.0, 100.0, this.base, "测试节点-Test node", new ArrayList<>(), Arrays.asList(
 //                new Node.NodeCardNode("测试字节型参数A-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.BYTE, true, null, (byte) 0),
@@ -480,13 +486,16 @@ public class NodeEditor extends MinWindowType {
 //                ))
 //        ), Color.BLUE));
 
-        this.addCard(InputNodes.MAIN.nodeCtr.createNew(100, 100, this.base));
-//        this.addCard(InputNodes.PRINT.nodeCtr.createNew(100, 100, this.base));
+        this.addCard(InputNodes.MAIN.nodeCtr.createNew(100, 100, this.trueBase));
+//        this.addCard(InputNodes.PRINT.nodeCtr.createNew(100, 100, this.trueBase));
 //        this.addCard(InputNodes.PRINT.nodeCtr.createNew(100, 100, this.base));
 //        this.addCard(InputNodes.PRINT.nodeCtr.createNew(100, 100, this.base));
 //        this.addCard(InputNodes.LIST_GET.nodeCtr.createNew(100, 100, this.base));
+//        this.addCard(InputNodes.INT_TO_STRING.nodeCtr.createNew(100, 100, this.base));
 //        this.addCard(InputNodes.LIST_GET.nodeCtr.createNew(100, 100, this.base));
 //        this.addCard(InputNodes.LIST_GET.nodeCtr.createNew(100, 100, this.base));
+
+        this.base.getChildren().add(this.trueBase);
 
     }
 
@@ -524,8 +533,8 @@ public class NodeEditor extends MinWindowType {
         for (Node node : this.nodes) {
             if (node.leftDataLines.contains(connectingLine)) {
                 node.leftDataPointList.set(node.leftDataLines.indexOf(connectingLine), null);
-                node.leftDataLines.set(node.leftDataLines.indexOf(connectingLine), null);
                 node.leftCardNodes.get(node.leftDataLines.indexOf(connectingLine)).edit.setVisible(true);
+                node.leftDataLines.set(node.leftDataLines.indexOf(connectingLine), null);
             }
             for (List<ConnectingLine> cl : node.rightDataLines) {
                 cl.remove(connectingLine);
@@ -559,7 +568,7 @@ public class NodeEditor extends MinWindowType {
             this.connectingLine.delete();
         }
         this.connectingLine = connectingLine;
-        this.connectingLine.addTo(this.base);
+        this.connectingLine.addTo(this.trueBase);
     }
 
     public void resetPos(float x, float y) {
@@ -581,10 +590,10 @@ public class NodeEditor extends MinWindowType {
 
     public void delete() {
         for (Line line : this.horizontalLines) {
-            this.base.getChildren().remove(line);
+            this.trueBase.getChildren().remove(line);
         }
         for (Line line : this.verticalLines) {
-            this.base.getChildren().remove(line);
+            this.trueBase.getChildren().remove(line);
         }
         for (Node node : this.nodes) {
             node.delete();
@@ -599,11 +608,9 @@ public class NodeEditor extends MinWindowType {
         this.background.removeEventHandler(MouseEvent.MOUSE_DRAGGED, dragHandler);
         this.background.removeEventHandler(MouseEvent.MOUSE_RELEASED, releaseHandler);
         this.background.removeEventHandler(ScrollEvent.SCROLL, scrollHandler);
-        this.base.getChildren().remove(this.r);
-    }
-
-    private double getEditorNameWidth() {
-        return (new Text(this.title)).getLayoutBounds().getWidth() + 8.0;
+        this.background.removeEventHandler(MouseEvent.ANY, mpHandler);
+        this.trueBase.getChildren().clear();
+        this.base.getChildren().remove(this.trueBase);
     }
 
     public static class RunACode extends Task<Void> {

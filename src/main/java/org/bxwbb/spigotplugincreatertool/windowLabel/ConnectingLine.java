@@ -1,12 +1,10 @@
 package org.bxwbb.spigotplugincreatertool.windowLabel;
 
 import javafx.scene.Group;
-import javafx.scene.Node;
-import javafx.scene.image.ImageView;
-import javafx.scene.input.MouseButton;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import org.bxwbb.spigotplugincreatertool.HelloApplication;
+import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.Node;
 
 public class ConnectingLine extends BaseLabel {
 
@@ -111,5 +109,10 @@ public class ConnectingLine extends BaseLabel {
                 this.lineStartColor,
                 this.lineEndColor
         );
+    }
+
+    @Override
+    public Node.VarType getVarType() {
+        return null;
     }
 }
