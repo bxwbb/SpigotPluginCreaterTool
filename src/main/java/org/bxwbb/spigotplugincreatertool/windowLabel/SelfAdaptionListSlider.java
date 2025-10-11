@@ -1,0 +1,344 @@
+package org.bxwbb.spigotplugincreatertool.windowLabel;
+
+import javafx.scene.Group;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.ScrollEvent;
+import javafx.scene.shape.Rectangle;
+import javafx.scene.text.Text;
+import org.bxwbb.spigotplugincreatertool.HelloApplication;
+import org.bxwbb.spigotplugincreatertool.MinWindow;
+import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.Node;
+import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.NodeCtr;
+
+import java.util.*;
+
+@SuppressWarnings({"ALL", "unchecked"})
+public class SelfAdaptionListSlider extends BaseLabel {
+
+    public static double LIST_LABLE_HEIGHT = 150;
+
+    public String name;
+    public List<String> lore;
+    public Rectangle background;
+    public Text title;
+    public List<BaseLabel> sliderLongs = new ArrayList<>();
+    public Rectangle mask;
+    public Group sliderGroup;
+    public double sliderHeight;
+    public Rectangle sliderListLine;
+    public double sliderListLineHeight;
+    public List<ConnectingLine> dataLines = new ArrayList<>();
+    public List<Node.DataLinePoint> dataPointList = new ArrayList<>();
+
+    private double rMouseY;
+    private Node.VarType varType;
+    // 开始位移的索引
+    public int startIndex = 0;
+
+    public SelfAdaptionListSlider(double startX, double startY, double endX, double endY, String name, List<String> lore, List<BaseLabel> data, Node.VarType varType) {
+        this.base = new Group();
+        this.sliderGroup = new Group();
+        this.startX = startX;
+        this.startY = startY;
+        this.endX = endX;
+        this.endY = endY;
+        this.name = name;
+        this.lore = lore;
+        this.sliderHeight = 0;
+        this.varType = varType;
+        this.title = new Text(name);
+        this.title.setFont(HelloApplication.TEXT_FONT);
+        this.title.setFill(HelloApplication.FONT_COLOR);
+        this.title.setX(this.startX + 10);
+        this.title.setY(this.startY + this.title.getLayoutBounds().getHeight() * 0.5 + 5);
+        this.background = new Rectangle(this.startX, this.startY + this.title.getLayoutBounds().getHeight() + 5, this.endX - this.startX, this.endY - this.startY);
+        this.background.setFill(HelloApplication.UNSELECTED_COLOR);
+        this.background.setArcWidth(HelloApplication.ROUNDNESS);
+        this.background.setArcHeight(HelloApplication.ROUNDNESS);
+        this.background.setStrokeWidth(1.0);
+        this.background.setStroke(HelloApplication.UNSELECTED_BORDER_COLOR);
+        this.mask = new Rectangle(this.startX + 1, this.startY + this.title.getLayoutBounds().getHeight() + 5 + 1, this.endX - this.startX - 2, this.endY - this.startY - 2);
+        this.mask.setArcWidth(HelloApplication.ROUNDNESS);
+        this.mask.setArcHeight(HelloApplication.ROUNDNESS);
+        this.sliderGroup.setClip(this.mask);
+        this.sliderLongs = data;
+        for (int i = 0; i < this.sliderLongs.size(); i++) {
+            this.sliderLongs.get(i).setName(name + "[" + i + "]");
+            if (this.sliderLongs.size() > 1) this.sliderLongs.get(i).addTo(this.sliderGroup);
+        }
+        this.sliderListLineHeight = Math.max(0.2, 1.0 / (this.sliderLongs.size() * (this.sliderLongs.isEmpty() ? 0 : this.sliderLongs.getFirst().getHeight() + 4)));
+        HelloApplication.scene.addEventHandler(ScrollEvent.SCROLL, this::scrollEvent);
+        this.sliderListLine = new Rectangle(this.startX, this.startY + this.title.getLayoutBounds().getHeight() + 5, this.endX - this.startX, this.startY + this.title.getLayoutBounds().getHeight() + (this.background.getHeight() - 4) * this.sliderListLineHeight);
+        this.sliderListLine.setFill(HelloApplication.UNSELECTED_COLOR);
+        this.sliderListLine.setStroke(HelloApplication.UNSELECTED_BORDER_COLOR);
+        this.sliderListLine.setStrokeWidth(1.0f);
+        this.sliderListLine.setArcWidth(HelloApplication.ROUNDNESS);
+        this.sliderListLine.setArcHeight(HelloApplication.ROUNDNESS);
+        this.sliderListLine.setOnMouseEntered(event -> {
+            this.sliderListLine.setFill(HelloApplication.HOVER_COLOR);
+            this.rMouseY = event.getY();
+        });
+        this.sliderListLine.setOnMouseExited(event -> this.sliderListLine.setFill(HelloApplication.UNSELECTED_COLOR));
+        this.sliderListLine.setOnMousePressed(event -> {
+            if (event.getButton() == MouseButton.PRIMARY) {
+                this.rMouseY = event.getY();
+            }
+        });
+        this.sliderListLine.setOnMouseMoved(event -> {
+            if (event.getButton() == MouseButton.PRIMARY) {
+                this.rMouseY = event.getY();
+            }
+        });
+        this.sliderListLine.setOnMouseDragged(event -> {
+            if (event.getButton() == MouseButton.PRIMARY) {
+                if (this.getSliderListHeight() < this.background.getHeight()) return;
+                this.sliderListLine.setY(this.sliderListLine.getY() + event.getY() - this.rMouseY);
+                if (this.sliderListLine.getY() < (this.background.getY() + 4)) {
+                    this.sliderListLine.setY(this.background.getY() + 4);
+                }
+                if (this.sliderListLine.getY() > (this.startY + this.title.getLayoutBounds().getHeight() + this.background.getHeight() - this.sliderListLine.getHeight())) {
+                    this.sliderListLine.setY(this.startY + this.title.getLayoutBounds().getHeight() + this.background.getHeight() - this.sliderListLine.getHeight());
+                }
+                this.sliderHeight = ((this.getSliderListHeight() - this.background.getHeight() + 5) * (((this.background.getY() + 4) - this.sliderListLine.getY()) / ((this.startY + this.title.getLayoutBounds().getHeight() + this.background.getHeight() - this.sliderListLine.getHeight()) - (this.background.getY() + 4))));
+                for (int i = 0; i < this.sliderLongs.size(); i++) {
+                    this.sliderLongs.get(i).resetPos(this.startX + 5, this.startY + this.title.getLayoutBounds().getHeight() + 10 + i * (this.sliderLongs.getFirst() == null ? 0 : Node.getNextHeight(this.sliderLongs.getFirst().getVarType(), null) + 4) + this.sliderHeight);
+                }
+            }
+            this.rMouseY = event.getY();
+        });
+    }
+
+    public void addDataLine(ConnectingLine connectingLine, Node.DataLinePoint dataLinePoint) throws ClassNotFoundException {
+        this.dataLines.add(connectingLine);
+        this.dataPointList.add(dataLinePoint);
+        if (this.dataLines.size() == 1) {
+            this.sliderLongs.getFirst().addTo(this.sliderGroup);
+            return;
+        }
+        this.sliderLongs.add(this.sliderLongs.getLast().createNew());
+        this.sliderLongs.getLast().setName(name + "[" + (this.sliderLongs.size() - 1) + "]");
+        this.sliderLongs.getLast().setData(this.sliderLongs.get(this.sliderLongs.size() - 2).getData());
+        this.sliderLongs.getLast().addTo(this.sliderGroup);
+        this.sliderLongs.getLast().setVisible(this.visible);
+        this.update();
+    }
+
+    public void addSliderLong() throws ClassNotFoundException {
+        this.dataLines.add(null);
+        this.dataPointList.add(null);
+        if (this.dataLines.size() == 1) {
+            this.sliderLongs.getFirst().addTo(this.sliderGroup);
+            return;
+        }
+        this.sliderLongs.add(this.sliderLongs.getLast().createNew());
+        this.sliderLongs.getLast().setName(name + "[" + (this.sliderLongs.size() - 1) + "]");
+        this.sliderLongs.getLast().setData(this.sliderLongs.get(this.sliderLongs.size() - 2).getData());
+        this.sliderLongs.getLast().addTo(this.sliderGroup);
+        this.sliderLongs.getLast().setVisible(this.visible);
+    }
+
+    public void removeDataLine(ConnectingLine connectingLine) {
+        this.dataPointList.remove(this.dataLines.indexOf(connectingLine));
+        this.dataLines.remove(connectingLine);
+    }
+
+    public void insertDataLine(int index, ConnectingLine connectingLine, Node.DataLinePoint dataLinePoint) throws ClassNotFoundException {
+        if (this.dataLines.isEmpty() || index >= this.dataLines.size()) {
+            addDataLine(connectingLine, dataLinePoint);
+            return;
+        }
+        this.dataLines.add(index, connectingLine);
+        this.dataPointList.add(index, dataLinePoint);
+        this.sliderLongs.add(index, this.sliderLongs.get(index).createNew());
+        this.sliderLongs.get(index).setName(name + "[" + index + "]");
+        this.sliderLongs.get(index).setData(this.sliderLongs.get(this.sliderLongs.size() - 2).getData());
+        this.sliderLongs.get(index).addTo(this.sliderGroup);
+        this.sliderLongs.get(index).setVisible(this.visible);
+        for (int i = index + 1; i < this.sliderLongs.size(); i++) {
+            this.sliderLongs.get(i).setName(name + "[" + i + "]");
+        }
+    }
+
+    public void setStartIndex(int index) {
+        if (index < 0) {
+            this.startIndex = this.dataLines.size();
+        } else {
+            this.startIndex = index;
+        }
+        this.update();
+    }
+
+    @Override
+    public void resetPos(double x, double y) {
+        this.endX = this.endX - this.startX + x;
+        this.endY = this.endY - this.startY + y;
+        this.startX = x;
+        this.startY = y;
+        this.title.setX(this.startX + 10);
+        this.title.setY(this.startY + this.title.getLayoutBounds().getHeight() * 0.5 + 5);
+        this.background.setX(this.startX);
+        this.background.setY(this.startY + this.title.getLayoutBounds().getHeight() + 5);
+        this.mask.setX(this.startX + 1);
+        this.mask.setY(this.startY + this.title.getLayoutBounds().getHeight() + 5 + 1);
+        for (int i = 0; i < this.sliderLongs.size(); i++) {
+            this.sliderLongs.get(i).resetPos(this.startX + 5, this.startY + this.title.getLayoutBounds().getHeight() + 10 + i * (this.sliderLongs.getFirst() == null ? 0 : Node.getNextHeight(this.sliderLongs.getFirst().getVarType(), null) + 4) + this.sliderHeight);
+        }
+        this.sliderListLine.setX(this.endX - 12);
+        this.sliderListLine.setY(this.startY + this.title.getLayoutBounds().getHeight() + 10 + ((this.startY + this.title.getLayoutBounds().getHeight() + this.background.getHeight() - this.sliderListLine.getHeight()) - (this.background.getY() + 4)) * ((this.sliderHeight) / (-(this.sliderLongs.size() * (this.sliderLongs.isEmpty() ? 0 : Node.getNextHeight(this.sliderLongs.getFirst().getVarType(), null) + 4) - LIST_LABLE_HEIGHT + 8))));
+        this.sliderListLineHeight = Math.max(0.2, this.background.getHeight() / Math.max(this.getSliderListHeight(), this.background.getHeight()));
+        this.sliderListLine.setHeight((this.background.getHeight() - 8) * this.sliderListLineHeight);
+        int i = 0;
+        for (ConnectingLine dataLine : this.dataLines) {
+            dataLine.resetSize(this.startX, this.startY + 7 + (i + (this.startIndex <= this.dataLines.indexOf(dataLine) ? 1 : 0)) * 10);
+            i++;
+        }
+        if (!this.dataLines.isEmpty()) {
+            for (BaseLabel sliderLong : this.sliderLongs) {
+                sliderLong.setVisible(false);
+            }
+        }
+    }
+
+    @Override
+    public void resetSize(double width, double height) {
+        this.endX = this.startX + width;
+        this.endY = this.startY + height;
+        this.background.setWidth(this.endX - this.startX);
+        this.background.setHeight(this.endY - this.startY);
+        this.mask.setWidth(this.endX - this.startX - 2);
+        this.mask.setHeight(this.endY - this.startY - 2);
+        this.sliderListLineHeight = Math.max(0.2, this.background.getHeight() / Math.max(this.getSliderListHeight(), this.background.getHeight()));
+        this.sliderListLine.setHeight((this.background.getHeight() - 8) * this.sliderListLineHeight);
+        for (BaseLabel sliderLong : this.sliderLongs) {
+            sliderLong.resetSize(this.endX - this.startX - 20, Node.getLableHieght(this.sliderLongs.getFirst().getVarType()));
+        }
+    }
+
+    private double getSliderListHeight() {
+        if (this.sliderLongs.isEmpty()) return 0;
+        return this.sliderLongs.size() * (this.sliderLongs.getFirst() == null ? 0 : Node.getNextHeight(this.sliderLongs.getFirst().getVarType(), null) + 4);
+    }
+
+    private void scrollEvent(ScrollEvent event) {
+        if (MinWindow.isPointInRectangle(this.background.getX(), this.background.getY(), this.background.getX() + this.background.getWidth(), this.background.getY() + this.background.getHeight(), event.getX(), event.getY())) {
+            this.sliderHeight += event.getDeltaY() * 0.25;
+            this.sliderHeight = Math.min(Math.max(this.sliderHeight, -(this.sliderLongs.size() * (this.sliderLongs.isEmpty() ? 0 : Node.getNextHeight(this.sliderLongs.getFirst().getVarType(), null) + 4) - LIST_LABLE_HEIGHT + 8)), 0.0);
+            this.resetPos(this.startX, this.startY);
+        }
+    }
+
+    @Override
+    public void delete() {
+        for (BaseLabel slider : this.sliderLongs) {
+            slider.delete();
+        }
+        this.sliderGroup.getChildren().clear();
+        this.base.getChildren().clear();
+        this.root.getChildren().remove(base);
+    }
+
+    @Override
+    public void addTo(Group root) {
+        this.root = root;
+        this.base.getChildren().add(this.background);
+        this.base.getChildren().add(this.title);
+        this.sliderGroup.getChildren().add(this.sliderListLine);
+        this.base.getChildren().add(this.sliderGroup);
+        this.root.getChildren().add(this.base);
+    }
+
+    @Override
+    public void setName(String name) {
+        this.name = name;
+        this.title.setText(name);
+        for (int i = 0; i < this.sliderLongs.size(); i++) {
+            this.sliderLongs.get(i).setName(name + "[" + i + "]");
+        }
+    }
+
+    @Override
+    public double getWidth() {
+        return this.background.getWidth();
+    }
+
+    @Override
+    public double getHeight() {
+        return this.background.getHeight() + this.title.getLayoutBounds().getHeight();
+    }
+
+    @Override
+    public void autoWidth() {
+    }
+
+    @Override
+    public void setVisible(boolean visible) {
+        this.visible = visible;
+        for (BaseLabel sliderLong : this.sliderLongs) {
+            sliderLong.setVisible(visible);
+        }
+    }
+
+    @Override
+    public Object getData() {
+        Set<NodeCtr> dataLinePointSet = new HashSet<>();
+        List<Object> data = new ArrayList<>();
+        if (this.dataLines.isEmpty()) {
+            for (BaseLabel sliderLong : this.sliderLongs) {
+                data.add(sliderLong.getData());
+            }
+        } else {
+            for (Node.DataLinePoint dataLinePoint : this.dataPointList) {
+                if (!dataLinePointSet.contains(dataLinePoint.nodeCtr)) {
+                    dataLinePointSet.add(dataLinePoint.nodeCtr);
+                    dataLinePoint.update();
+                }
+                data.add(dataLinePoint.getData());
+            }
+            for (int i = 0; i < this.sliderLongs.size(); i++) {
+                try {
+                    this.sliderLongs.get(i).setData(data.get(i));
+                } catch (ClassNotFoundException e) {
+                }
+            }
+        }
+        return data;
+    }
+
+    @Override
+    public void setData(Object data) throws ClassNotFoundException {
+        List<Object> dataList = (List<Object>) data;
+        List<BaseLabel> sl = new ArrayList<>();
+        for (int i = 0; i < dataList.size(); i++) {
+            sl.add(this.sliderLongs.getLast().createNew());
+            sl.getLast().setName(name + "[" + (i) + "]");
+            sl.getLast().setData(dataList.get(i));
+            sl.getLast().addTo(this.sliderGroup);
+            sl.getLast().setVisible(this.visible);
+        }
+        for (BaseLabel sliderLong : this.sliderLongs) {
+            sliderLong.delete();
+        }
+        this.sliderLongs = sl;
+        this.resetPos(this.startX, this.startY);
+        this.resetSize(this.endX - this.startX, this.endY - this.startY);
+    }
+
+    @Override
+    public BaseLabel createNew() {
+        return new SelfAdaptionListSlider(
+                this.startX,
+                this.startY,
+                this.endX,
+                this.endY,
+                this.name,
+                new ArrayList<>(this.lore),
+                new ArrayList<>(this.sliderLongs),
+                this.varType
+        );
+    }
+
+    @Override
+    public Node.VarType getVarType() {
+        return Node.VarType.SELF_ADAPTION_LIST;
+    }
+}

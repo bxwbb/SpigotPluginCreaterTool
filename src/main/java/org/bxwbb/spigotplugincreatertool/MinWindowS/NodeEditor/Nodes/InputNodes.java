@@ -3,9 +3,11 @@ package org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.Nodes;
 import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.Node;
 import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.NodeCtr;
 import org.bxwbb.spigotplugincreatertool.windowLabel.ObjectInput;
+import org.bxwbb.spigotplugincreatertool.windowLabel.SliderLong;
 import org.bxwbb.spigotplugincreatertool.windowLabel.StringInput;
 
 import java.util.List;
+import java.util.Random;
 
 @SuppressWarnings("ALL")
 public enum InputNodes {
@@ -237,7 +239,114 @@ public enum InputNodes {
                 throw new RuntimeException(e);
             }
         }
-    }.evaluate());;
+    }.evaluate()),
+    RANDOM("内部测试用随机数", new Object() {
+        NodeCtr evaluate() {
+            try {
+                return new NodeCtr(
+                        0,
+                        0,
+                        new Node(
+                                0,
+                                0,
+                                NodeTopBarColor.empty,
+                                "内部测试用随机数",
+                                List.of(
+                                        "内部测试用随机数"
+                                ),
+                                List.of(),
+                                List.of(
+                                        new Node.NodeCardNode(
+                                                "随机数",
+                                                List.of(
+                                                        "随机数"
+                                                ),
+                                                Node.VarType.LONG,
+                                                false,
+                                                List.of(),
+                                                0L
+                                        )
+                                ),
+                                NodeTopBarColor.INPUT_TOP_BAR_COLOR,
+                                true,
+                                true
+                        ),
+                        List.of(
+                                inputs -> {
+                                    Random random = new Random();
+                                    return random.nextLong(1000);
+                                }
+                        ),
+                        ""
+                );
+            } catch (ClassNotFoundException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }.evaluate()),
+    ADD("标量相加", new Object() {
+        NodeCtr evaluate() {
+            try {
+                return new NodeCtr(
+                        0,
+                        0,
+                        new Node(
+                                0,
+                                0,
+                                NodeTopBarColor.empty,
+                                "标量相加",
+                                List.of(
+                                        "输入的所有值"
+                                ),
+                                List.of(
+                                        new Node.NodeCardNode(
+                                                "输入的所有值",
+                                                List.of(
+                                                        "输入的所有值"
+                                                ),
+                                                Node.VarType.SELF_ADAPTION_LIST,
+                                                true,
+                                                List.of(
+                                                        Node.VarType.LONG
+                                                ),
+                                                List.of(
+                                                        new SliderLong(0, 0, 0, 0, 0L, "long", List.of("参数描述-Parameter description"), false, false, 0L, 0L, 1L)
+                                                )
+                                        )
+                                ),
+                                List.of(
+                                        new Node.NodeCardNode(
+                                                "和",
+                                                List.of(
+                                                        "所有输入之和"
+                                                ),
+                                                Node.VarType.LONG,
+                                                false,
+                                                List.of(),
+                                                0L
+                                        )
+                                ),
+                                NodeTopBarColor.MATH_TOP_BAR_COLOR,
+                                true,
+                                true
+                        ),
+                        List.of(
+                                inputs -> {
+                                    long sum = 0;
+                                    List<Long> is = (List<Long>) inputs.getFirst().value();
+                                    for (Long i : is) {
+                                        sum += i;
+                                    }
+                                    return sum;
+                                }
+                        ),
+                        "java.io.PrintStream.println(java.lang.Object)"
+                );
+            } catch (ClassNotFoundException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }.evaluate());
 
     public final String name;
     public final NodeCtr nodeCtr;

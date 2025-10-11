@@ -105,6 +105,63 @@ public class ClassAnalyzer {
     }
 
     /**
+     * 将Constructor对象转换为Function<List<Object>, Object>
+     * 该函数接收参数列表，返回通过构造函数创建的类实例
+     */
+    public static Function<List<Object>, Object> getConstructorFunction(Constructor<?> constructor) {
+        constructor.setAccessible(true);
+
+        return params -> {
+            try {
+                if (params.size() != constructor.getParameterCount()) {
+                    throw new IllegalArgumentException("参数数量不匹配，预期: " +
+                            constructor.getParameterCount() + ", 实际: " + params.size());
+                }
+
+                Object[] paramsArray = params.toArray(new Object[0]);
+                return constructor.newInstance(paramsArray);
+            } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
+                throw new RuntimeException("构造函数调用失败: " + e.getMessage(), e);
+            }
+        };
+    }
+
+    /**
+     * 通过ConstructorInfo获取Function对象
+     * 该函数接收参数列表，返回通过构造函数创建的类实例
+     */
+    public static Function<List<Object>, Object> getFunctionFromConstructorInfo(
+            ConstructorInfo constructorInfo,
+            ClassInfo classInfo,
+            List<String> classPaths) throws Exception {
+        // 1. 加载类
+        Class<?> clazz = getClassFromString(classInfo.fullClassName, classPaths);
+
+        // 2. 解析参数类型
+        Class<?>[] parameterTypes = new Class[constructorInfo.parameterTypes.length];
+        for (int i = 0; i < constructorInfo.parameterTypes.length; i++) {
+            parameterTypes[i] = getClassFromString(constructorInfo.parameterTypes[i], classPaths);
+        }
+
+        // 3. 查找构造函数
+        Constructor<?> constructor = findConstructor(clazz, parameterTypes);
+
+        // 4. 转换为Function并返回
+        return getConstructorFunction(constructor);
+    }
+
+    /**
+     * 查找类中的构造函数（包括私有构造函数）
+     */
+    private static Constructor<?> findConstructor(Class<?> clazz, Class<?>[] parameterTypes) throws NoSuchMethodException {
+        try {
+            return clazz.getDeclaredConstructor(parameterTypes);
+        } catch (NoSuchMethodException e) {
+            throw new NoSuchMethodException("在类 " + clazz.getName() + " 中找不到匹配的构造函数");
+        }
+    }
+
+    /**
      * 联动方法：直接通过类名、方法名、参数类型和类路径获取Function对象
      */
     public static Function<List<Object>, Object> getFunctionFromMethodInfo(
@@ -606,6 +663,36 @@ public class ClassAnalyzer {
                 System.out.println("获取到的静态字段: " + maxValueField);
                 int maxValue = (int) maxValueField.get(null); // 静态字段get参数传null
                 System.out.println("Integer.MAX_VALUE = " + maxValue); // 输出2147483647
+            }
+
+            // 测试构造函数Function
+            System.out.println("\n===== 测试构造函数Function =====");
+
+            // 1. 分析String类获取ClassInfo（已在前面获取）
+            // 2. 获取String类的一个构造函数信息（例如: String(char[] value)）
+            ConstructorInfo stringConstructorInfo = null;
+            for (ConstructorInfo constructor : stringClassInfo.constructors) {
+                if (constructor.parameterTypes.length == 1 && "char[]".equals(constructor.parameterTypes[0])) {
+                    stringConstructorInfo = constructor;
+                    break;
+                }
+            }
+
+            if (stringConstructorInfo != null) {
+                // 3. 获取构造函数的Function对象
+                Function<List<Object>, Object> constructorFunction = getFunctionFromConstructorInfo(
+                        stringConstructorInfo,
+                        stringClassInfo,
+                        classPaths
+                );
+
+                // 4. 使用Function创建实例
+                char[] chars = {'H', 'e', 'l', 'l', 'o', ' ', 'W', 'o', 'r', 'l', 'd'};
+                List<Object> params = new ArrayList<>();
+                params.add(chars);
+
+                String newString = (String) constructorFunction.apply(params);
+                System.out.println("通过构造函数创建的字符串: " + newString); // 输出 "Hello World"
             }
 
         } catch (Exception ignored) {

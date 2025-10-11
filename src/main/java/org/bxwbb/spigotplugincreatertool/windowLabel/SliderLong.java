@@ -291,6 +291,7 @@ public class SliderLong extends BaseLabel {
     public void delete() {
         this.baseGroup.getChildren().clear();
         this.base.getChildren().clear();
+        if (this.root == null) return;
         this.root.getChildren().remove(this.base);
         this.root.getChildren().remove(this.valueTextField);
     }
@@ -346,7 +347,7 @@ public class SliderLong extends BaseLabel {
 
     @Override
     public void setData(Object data) {
-        this.value = (int) data;
+        this.value = (long) data;
         if (this.leftBorder) {
             if (this.value < this.leftValue) {
                 this.value = this.leftValue;

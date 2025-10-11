@@ -228,20 +228,20 @@ public class MinecraftServerCreater extends MinWindowType {
         SliderDouble minMemorySlider = new SliderDouble(this.startX + 30, this.startY + MinWindow.PADDING + 255, this.startX + this.getEditorNameWidth() + 150, this.startY + MinWindow.PADDING + 275, 4, "服务端内存使用最小值(GB)", null, true, false, 0, 0, 1);
         this.labels.add(minMemorySlider);
         minMemorySlider.addTo(group);
-        StringInput serverIp = new StringInput(this.startX + 30, this.startY + MinWindow.PADDING + 280, this.startX + this.getEditorNameWidth() + 150, this.startY + MinWindow.PADDING + 305, "127.0.0.1", "服务端IP地址", null);
-        this.labels.add(serverIp);
-        serverIp.addTo(group);
-        text = new Text("服务端端口");
+        text = new Text("服务端网络设置");
         text.setX(this.startX + 30);
-        text.setY(this.startY + MinWindow.PADDING + 335);
+        text.setY(this.startY + MinWindow.PADDING + 285);
         text.setFont(HelloApplication.TEXT_FONT);
         text.setFill(HelloApplication.FONT_COLOR);
         this.nodes.add(text);
         group.getChildren().add(text);
-        SliderInt serverPort = new SliderInt(this.startX + 30, this.startY + MinWindow.PADDING + 345, this.startX + this.getEditorNameWidth() + 150, this.startY + MinWindow.PADDING + 365, 25565, "服务器端口号", null, true, true, 0, 65535, 1);
+        StringInput serverIp = new StringInput(this.startX + 30, this.startY + MinWindow.PADDING + 290, this.startX + this.getEditorNameWidth() + 150, this.startY + MinWindow.PADDING + 310, "127.0.0.1", "服务端IP地址", null);
+        this.labels.add(serverIp);
+        serverIp.addTo(group);
+        SliderInt serverPort = new SliderInt(this.startX + 30, this.startY + MinWindow.PADDING + 315, this.startX + this.getEditorNameWidth() + 150, this.startY + MinWindow.PADDING + 335, 25565, "服务器端口号", null, true, true, 0, 65535, 1);
         this.labels.add(serverPort);
         serverPort.addTo(group);
-        TextButton createButton = new TextButton(this.startX + 30, this.startY + MinWindow.PADDING + 370, this.startX + this.getEditorNameWidth() + 150, this.startY + MinWindow.PADDING + 390, "创建并构建新的服务器软件", true);
+        TextButton createButton = new TextButton(this.startX + 30, this.startY + MinWindow.PADDING + 340, this.startX + this.getEditorNameWidth() + 150, this.startY + MinWindow.PADDING + 360, "创建并构建新的服务器软件", true);
         createButton.resetImage(
                 new Image(Objects.requireNonNull(getClass().getResourceAsStream(
                         "/org/bxwbb/spigotplugincreatertool/icon/MinecraftServerCreater/Create.png"

@@ -5,11 +5,18 @@ import javafx.scene.Group;
 import javafx.scene.shape.CubicCurveTo;
 import javafx.scene.shape.MoveTo;
 import javafx.scene.shape.Path;
+import javafx.scene.shape.StrokeLineCap;
+import javafx.scene.shape.StrokeLineJoin;
 import javafx.scene.paint.Color;
+import javafx.animation.AnimationTimer;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 
 /**
  * 分段绘制的贝塞尔曲线（沿路径精确渐变）
- * 核心：将曲线拆分为多段，每段使用插值颜色，模拟沿路径的渐变效果
+ * 支持多个独立的单次信号粒子流动画
  */
 public class AutoBezierCurve extends Group {
     // 曲线核心参数
@@ -21,13 +28,23 @@ public class AutoBezierCurve extends Group {
     private double controlRatio = 0.4;   // 控制点距离比例（Blender风格）
 
     // 渐变参数
-    private Color startColor = Color.rgb(100, 100, 255); // 起点颜色（浅蓝色）
-    private Color endColor = Color.rgb(255, 100, 100);   // 终点颜色（浅红色）
+    transient private Color startColor = Color.rgb(100, 100, 255); // 起点颜色（浅蓝色）
+    transient private Color endColor = Color.rgb(255, 100, 100);   // 终点颜色（浅红色）
     private int segments = 30; // 分段数量（越多渐变越平滑，建议20-50）
 
     // 样式参数
     private double strokeWidth = 1.5;
     private boolean isStrokeRound = true;
+
+    // 信号粒子参数
+    private double particleSpeed = 1.0;  // 粒子移动速度
+    private double particleSize = 0.15;  // 粒子大小（占曲线长度的比例）
+    private double particleTrail = 0.3;  // 粒子尾迹长度比例
+
+    // 动画管理
+    private List<SignalAnimation> activeAnimations = new ArrayList<>();
+    private AnimationTimer animationTimer;
+    private boolean isAnimationRunning = false;
 
     public AutoBezierCurve(double startX, double startY, double endX, double endY) {
         this.startX = startX;
@@ -36,6 +53,159 @@ public class AutoBezierCurve extends Group {
         this.endY = endY;
         calculateControlPoints(); // 计算控制点
         redrawCurve(); // 初始绘制
+        initAnimationTimer();
+    }
+
+    /**
+     * 初始化动画计时器
+     */
+    private void initAnimationTimer() {
+        animationTimer = new AnimationTimer() {
+            @Override
+            public void handle(long now) {
+                // 将纳秒转换为秒
+                double currentTime = now / 1_000_000_000.0;
+                updateAnimations(currentTime);
+            }
+        };
+    }
+
+    /**
+     * 启动一个新的信号动画（只播放一次）
+     * @param particleColor 粒子颜色
+     * @param duration 动画持续时间（秒）
+     */
+    public void startSignalAnimation(Color particleColor, double duration) {
+        // 添加新动画到活跃列表
+        activeAnimations.add(new SignalAnimation(
+                particleColor,
+                System.nanoTime() / 1_000_000_000.0,  // 开始时间（秒）
+                duration
+        ));
+
+        // 如果动画计时器未运行，则启动它
+        if (!isAnimationRunning) {
+            animationTimer.start();
+            isAnimationRunning = true;
+        }
+    }
+
+    /**
+     * 更新所有活跃动画并重新绘制曲线
+     */
+    private void updateAnimations(double currentTime) {
+        // 清除过期动画
+        Iterator<SignalAnimation> iterator = activeAnimations.iterator();
+        while (iterator.hasNext()) {
+            SignalAnimation anim = iterator.next();
+            if (currentTime - anim.startTime > anim.duration) {
+                iterator.remove();
+            }
+        }
+
+        // 如果没有活跃动画了，停止计时器
+        if (activeAnimations.isEmpty()) {
+            animationTimer.stop();
+            isAnimationRunning = false;
+            redrawCurve(); // 绘制原始曲线
+            return;
+        }
+
+        // 绘制带有所有活跃动画的曲线
+        drawWithAnimations(currentTime);
+    }
+
+    /**
+     * 根据当前所有活跃动画绘制曲线
+     */
+    private void drawWithAnimations(double currentTime) {
+        getChildren().clear(); // 清除之前的绘制
+
+        // 遍历所有分段
+        for (int i = 0; i < segments; i++) {
+            double tStart = (double) i / segments;
+            double tEnd = (double) (i + 1) / segments;
+            double tMid = (tStart + tEnd) / 2;
+
+            // 计算当前分段的起点和终点
+            Point2D segmentStart = getBezierPoint(tStart);
+            Point2D segmentEnd = getBezierPoint(tEnd);
+
+            // 计算当前分段的控制点
+            Point2D segmentControl1 = calculateSegmentControl(segmentStart, segmentEnd);
+            Point2D segmentControl2 = calculateSegmentControl(segmentEnd, segmentStart);
+
+            // 基础颜色（渐变）
+            Color baseColor = interpolateColor(startColor, endColor, tMid);
+
+            // 计算所有活跃动画对当前分段的影响
+            Color segmentColor = calculateCombinedColor(baseColor, tMid, currentTime);
+
+            // 创建分段曲线
+            Path segment = new Path();
+            segment.getElements().add(new MoveTo(segmentStart.getX(), segmentStart.getY()));
+            segment.getElements().add(new CubicCurveTo(
+                    segmentControl1.getX(), segmentControl1.getY(),
+                    segmentControl2.getX(), segmentControl2.getY(),
+                    segmentEnd.getX(), segmentEnd.getY()
+            ));
+
+            // 设置样式
+            segment.setStroke(segmentColor);
+            segment.setStrokeWidth(strokeWidth);
+            segment.setStrokeLineCap(isStrokeRound ? StrokeLineCap.ROUND : StrokeLineCap.BUTT);
+            segment.setStrokeLineJoin(StrokeLineJoin.ROUND);
+            segment.setFill(Color.TRANSPARENT);
+
+            getChildren().add(segment);
+        }
+    }
+
+    /**
+     * 计算多个动画叠加后的最终颜色
+     */
+    private Color calculateCombinedColor(Color baseColor, double tMid, double currentTime) {
+        // 从基础颜色开始
+        double r = baseColor.getRed();
+        double g = baseColor.getGreen();
+        double b = baseColor.getBlue();
+        double a = baseColor.getOpacity();
+
+        // 叠加每个活跃动画的影响
+        for (SignalAnimation anim : activeAnimations) {
+            // 计算动画进度（0到1）
+            double progress = (currentTime - anim.startTime) / anim.duration;
+            if (progress < 0 || progress > 1) continue;
+
+            // 计算粒子在曲线上的位置
+            double particlePos = progress;
+
+            // 计算当前位置与粒子的距离
+            double distance = Math.abs(tMid - particlePos);
+
+            // 如果在粒子核心区域
+            if (distance < particleSize / 2) {
+                // 使用粒子颜色覆盖
+                r = anim.particleColor.getRed();
+                g = anim.particleColor.getGreen();
+                b = anim.particleColor.getBlue();
+                a = anim.particleColor.getOpacity();
+            }
+            // 如果在粒子尾迹区域
+            else if (distance < particleSize / 2 + particleTrail && tMid < particlePos) {
+                // 尾迹颜色渐变（从粒子颜色到基础颜色）
+                double trailRatio = (distance - particleSize / 2) / particleTrail;
+                Color trailColor = interpolateColor(anim.particleColor, baseColor, trailRatio);
+
+                // 混合尾迹颜色与当前颜色
+                r = (r + trailColor.getRed()) / 2;
+                g = (g + trailColor.getGreen()) / 2;
+                b = (b + trailColor.getBlue()) / 2;
+                a = Math.max(a, trailColor.getOpacity());
+            }
+        }
+
+        return new Color(r, g, b, a);
     }
 
     /**
@@ -55,31 +225,28 @@ public class AutoBezierCurve extends Group {
 
     /**
      * 重绘整个曲线（核心方法）
-     * 1. 清除现有分段
-     * 2. 按比例计算每个分段的起点、终点和颜色
-     * 3. 绘制分段曲线并添加到容器
      */
     public void redrawCurve() {
         getChildren().clear(); // 清除之前的分段
 
         // 遍历所有分段（t从0到1，步长为1/segments）
         for (int i = 0; i < segments; i++) {
-            double tStart = (double) i / segments;       // 当前段起点在曲线上的比例
-            double tEnd = (double) (i + 1) / segments;   // 当前段终点在曲线上的比例
+            double tStart = (double) i / segments;
+            double tEnd = (double) (i + 1) / segments;
 
-            // 1. 计算当前分段的起点和终点（贝塞尔曲线上的点）
+            // 计算当前分段的起点和终点
             Point2D segmentStart = getBezierPoint(tStart);
             Point2D segmentEnd = getBezierPoint(tEnd);
 
-            // 2. 计算当前分段的控制点（确保分段曲线平滑衔接）
+            // 计算当前分段的控制点
             Point2D segmentControl1 = calculateSegmentControl(segmentStart, segmentEnd);
             Point2D segmentControl2 = calculateSegmentControl(segmentEnd, segmentStart);
 
-            // 3. 计算当前分段的颜色（基于中间位置的比例插值）
-            double tMid = (tStart + tEnd) / 2; // 分段中间点在整条曲线的比例
+            // 计算当前分段的颜色
+            double tMid = (tStart + tEnd) / 2;
             Color segmentColor = interpolateColor(startColor, endColor, tMid);
 
-            // 4. 创建分段曲线并设置样式
+            // 创建分段曲线并设置样式
             Path segment = new Path();
             segment.getElements().add(new MoveTo(segmentStart.getX(), segmentStart.getY()));
             segment.getElements().add(new CubicCurveTo(
@@ -88,11 +255,11 @@ public class AutoBezierCurve extends Group {
                     segmentEnd.getX(), segmentEnd.getY()
             ));
 
-            // 设置分段样式（确保与整体风格一致）
+            // 设置分段样式
             segment.setStroke(segmentColor);
             segment.setStrokeWidth(strokeWidth);
-            segment.setStrokeLineCap(isStrokeRound ? javafx.scene.shape.StrokeLineCap.ROUND : javafx.scene.shape.StrokeLineCap.BUTT);
-            segment.setStrokeLineJoin(javafx.scene.shape.StrokeLineJoin.ROUND);
+            segment.setStrokeLineCap(isStrokeRound ? StrokeLineCap.ROUND : StrokeLineCap.BUTT);
+            segment.setStrokeLineJoin(StrokeLineJoin.ROUND);
             segment.setFill(Color.TRANSPARENT);
 
             // 添加到容器
@@ -101,13 +268,10 @@ public class AutoBezierCurve extends Group {
     }
 
     /**
-     * 计算贝塞尔曲线上某比例位置的点（核心公式）
-     * @param t 比例（0=起点，1=终点）
-     * @return 曲线上的点坐标
+     * 计算贝塞尔曲线上某比例位置的点
      */
     private Point2D getBezierPoint(double t) {
-        double u = 1 - t; // 补数（u + t = 1）
-        // 三次贝塞尔曲线公式：B(t) = u³P0 + 3u²tP1 + 3ut²P2 + t³P3
+        double u = 1 - t;
         double x = u*u*u * startX
                 + 3*u*u*t * control1X
                 + 3*u*t*t * control2X
@@ -122,14 +286,10 @@ public class AutoBezierCurve extends Group {
     }
 
     /**
-     * 计算分段曲线的控制点（确保分段之间平滑过渡）
-     * @param point 分段的起点/终点
-     * @param nextPoint 分段的下一个点
-     * @return 分段的控制点
+     * 计算分段曲线的控制点
      */
     private Point2D calculateSegmentControl(Point2D point, Point2D nextPoint) {
-        // 基于原曲线的切线方向计算分段控制点，确保平滑
-        double tangentWeight = 0.3; // 切线权重（控制弯曲程度）
+        double tangentWeight = 0.3;
         double dx = nextPoint.getX() - point.getX();
         double dy = nextPoint.getY() - point.getY();
         return new Point2D(
@@ -139,16 +299,10 @@ public class AutoBezierCurve extends Group {
     }
 
     /**
-     * 颜色插值（从start到end按比例过渡）
-     * @param start 起始颜色
-     * @param end 结束颜色
-     * @param ratio 比例（0=start，1=end）
-     * @return 插值后的颜色
+     * 颜色插值
      */
     private Color interpolateColor(Color start, Color end, double ratio) {
-        // 确保比例在0-1之间
         ratio = Math.max(0, Math.min(1, ratio));
-        // RGBA通道分别插值
         double r = start.getRed() + (end.getRed() - start.getRed()) * ratio;
         double g = start.getGreen() + (end.getGreen() - start.getGreen()) * ratio;
         double b = start.getBlue() + (end.getBlue() - start.getBlue()) * ratio;
@@ -156,21 +310,15 @@ public class AutoBezierCurve extends Group {
         return new Color(r, g, b, a);
     }
 
-    // ==================== 对外API（允许动态修改参数） ====================
+    // ==================== 对外API ====================
 
-    /**
-     * 设置起点坐标
-     */
     public void setStartPoint(double x, double y) {
         this.startX = x;
         this.startY = y;
-        calculateControlPoints(); // 重新计算控制点
-        redrawCurve(); // 重绘曲线
+        calculateControlPoints();
+        redrawCurve();
     }
 
-    /**
-     * 设置终点坐标
-     */
     public void setEndPoint(double x, double y) {
         this.endX = x;
         this.endY = y;
@@ -178,47 +326,63 @@ public class AutoBezierCurve extends Group {
         redrawCurve();
     }
 
-    /**
-     * 设置渐变颜色
-     */
     public void setGradientColors(Color start, Color end) {
         this.startColor = start;
         this.endColor = end;
-        redrawCurve(); // 颜色变化需要重绘所有分段
-    }
-
-    /**
-     * 设置分段数量（影响渐变平滑度）
-     * @param segments 建议值：20-50（值越大越平滑，但性能消耗略高）
-     */
-    public void setSegmentCount(int segments) {
-        this.segments = Math.max(5, segments); // 最少5段，避免过度简化
         redrawCurve();
     }
 
-    /**
-     * 设置线宽
-     */
+    public void setSegmentCount(int segments) {
+        this.segments = Math.max(5, segments);
+        redrawCurve();
+    }
+
     public void setLineWidth(double width) {
         this.strokeWidth = width;
         redrawCurve();
     }
 
-    /**
-     * 设置是否使用圆角线帽
-     */
     public void setRoundCap(boolean round) {
         this.isStrokeRound = round;
         redrawCurve();
     }
 
-    /**
-     * 设置控制点比例（影响曲线弯曲程度）
-     */
     public void setControlRatio(double ratio) {
-        this.controlRatio = Math.max(0.1, Math.min(0.8, ratio)); // 限制在0.1-0.8之间
+        this.controlRatio = Math.max(0.1, Math.min(0.8, ratio));
         calculateControlPoints();
         redrawCurve();
     }
 
+    public void setParticleParameters(double speed, double size, double trail) {
+        this.particleSpeed = Math.max(0.1, speed);
+        this.particleSize = Math.max(0.05, Math.min(0.3, size));
+        this.particleTrail = Math.max(0, Math.min(0.5, trail));
+    }
+
+    /**
+     * 停止所有正在运行的动画
+     */
+    public void stopAllAnimations() {
+        activeAnimations.clear();
+        if (isAnimationRunning) {
+            animationTimer.stop();
+            isAnimationRunning = false;
+            redrawCurve();
+        }
+    }
+
+    /**
+     * 内部类：管理单个信号动画的参数和状态
+     */
+    private class SignalAnimation {
+        Color particleColor;
+        double startTime;  // 动画开始时间（秒）
+        double duration;   // 动画持续时间（秒）
+
+        SignalAnimation(Color color, double start, double dur) {
+            particleColor = color;
+            startTime = start;
+            duration = dur;
+        }
+    }
 }

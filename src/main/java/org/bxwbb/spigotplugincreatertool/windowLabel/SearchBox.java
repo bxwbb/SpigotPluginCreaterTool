@@ -3,6 +3,7 @@ package org.bxwbb.spigotplugincreatertool.windowLabel;
 import javafx.scene.Group;
 import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
+import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Text;
 import org.bxwbb.spigotplugincreatertool.HelloApplication;
@@ -21,6 +22,8 @@ import java.util.stream.Stream;
 public class SearchBox extends BaseLabel {
 
     public static final double TEXT_HEIGHT = 20;
+    // 构造函数文字颜色
+    public static final Color FUNCTION_COLOR = Color.rgb(0, 255, 217);
 
     public Rectangle background;
     public TextField textField;
@@ -113,7 +116,18 @@ public class SearchBox extends BaseLabel {
                                 className,
                                 HelloApplication.paths
                         );
-                        ClassAnalyzer.printClassInfo(this.records2);
+                        for (int j = 0; j < this.records2.methods.length; j++) {
+                            if (j >= this.searchResultTexts.size()) break;
+                            this.searchResultType.set(j, SearchType.METHOD);
+                        }
+                        for (int j = this.records2.methods.length; j < this.records2.methods.length + this.records2.fields.length; j++) {
+                            if (j >= this.searchResultTexts.size()) break;
+                            this.searchResultType.set(j, SearchType.FIELD);
+                        }
+                        for (int j = this.records2.methods.length + this.records2.fields.length; j < this.records2.methods.length + this.records2.fields.length + this.records2.constructors.length; j++) {
+                            if (j >= this.searchResultTexts.size()) break;
+                            this.searchResultType.set(j, SearchType.CONSTRUCTOR);
+                        }
                         updateTexts();
                     } else {
                         if (this.searchResultType.get(finalI).equals(SearchType.METHOD)) {
@@ -129,13 +143,26 @@ public class SearchBox extends BaseLabel {
                                             HelloApplication.openNodeEditor.base
                                     )
                             );
-                        } else {
+                        } else if (this.searchResultType.get(finalI).equals(SearchType.FIELD)) {
                             HelloApplication.openNodeEditor.addCard(
                                     NodeCreater.createNode(
                                             this.background.getX(),
                                             this.background.getY(),
                                             this.records2,
-                                            this.records2.fields[finalI]
+                                            this.records2.fields[finalI - this.records2.methods.length]
+                                    ).createNew(
+                                            this.background.getX(),
+                                            this.background.getY(),
+                                            HelloApplication.openNodeEditor.base
+                                    )
+                            );
+                        } else if (this.searchResultType.get(finalI).equals(SearchType.CONSTRUCTOR)) {
+                            HelloApplication.openNodeEditor.addCard(
+                                    NodeCreater.createNode(
+                                            this.background.getX(),
+                                            this.background.getY(),
+                                            this.records2,
+                                            this.records2.constructors[finalI - this.records2.methods.length - this.records2.fields.length]
                                     ).createNew(
                                             this.background.getX(),
                                             this.background.getY(),
@@ -181,30 +208,45 @@ public class SearchBox extends BaseLabel {
                     this.records2.fields = Stream.of(this.records2.fields)
                             .filter(item -> item.name.contains(newValue))
                             .toArray(ClassAnalyzer.FieldInfo[]::new);
+                    this.records2.constructors = (ClassAnalyzer.ConstructorInfo[]) Stream.of(this.records2.constructors)
+                            .filter(item -> this.records2.simpleName.contains(newValue))
+                            .toArray();
                     for (int i = 0; i < this.records2.methods.length; i++) {
                         if (i >= this.searchResultTexts.size()) break;
                         this.searchResultType.set(i, SearchType.METHOD);
                     }
-                    for (int i = 0; i < this.records2.fields.length; i++) {
+                    for (int i = this.records2.methods.length; i < this.records2.methods.length + this.records2.fields.length; i++) {
                         if (i >= this.searchResultTexts.size()) break;
                         this.searchResultType.set(i, SearchType.FIELD);
+                    }
+                    for (int i = this.records2.methods.length + this.records2.fields.length; i < this.records2.methods.length + this.records2.fields.length + this.records2.constructors.length; i++) {
+                        if (i >= this.searchResultTexts.size()) break;
+                        this.searchResultType.set(i, SearchType.CONSTRUCTOR);
                     }
                 } else {
                     this.records2.methods = this.records2Copy.methods.clone();
                     this.records2.fields = this.records2Copy.fields.clone();
+                    this.records2.constructors = this.records2Copy.constructors.clone();
                     this.records2.methods = Stream.of(this.records2.methods)
                             .filter(item -> item.name.contains(newValue))
                             .toList().toArray(new ClassAnalyzer.MethodInfo[0]);
                     this.records2.fields = Stream.of(this.records2.fields)
                             .filter(item -> item.name.contains(newValue))
                             .toArray(ClassAnalyzer.FieldInfo[]::new);
+                    this.records2.constructors = (ClassAnalyzer.ConstructorInfo[]) Stream.of(this.records2.constructors)
+                            .filter(item -> this.records2.simpleName.contains(newValue))
+                            .toArray();
                     for (int i = 0; i < this.records2.methods.length; i++) {
                         if (i >= this.searchResultTexts.size()) break;
                         this.searchResultType.set(i, SearchType.METHOD);
                     }
-                    for (int i = 0; i < this.records2.fields.length; i++) {
+                    for (int i = this.records2.methods.length; i < this.records2.methods.length + this.records2.fields.length; i++) {
                         if (i >= this.searchResultTexts.size()) break;
                         this.searchResultType.set(i, SearchType.FIELD);
+                    }
+                    for (int i = this.records2.methods.length + this.records2.fields.length; i < this.records2.methods.length + this.records2.fields.length + this.records2.constructors.length; i++) {
+                        if (i >= this.searchResultTexts.size()) break;
+                        this.searchResultType.set(i, SearchType.CONSTRUCTOR);
                     }
                 }
             }
@@ -358,88 +400,201 @@ public class SearchBox extends BaseLabel {
                 if (i < this.searchResultButtons.size()) this.searchResultTexts.get(i).setText(
                         method.returnType + " " +
                                 method.name + "(" + params + ")" + exceptions);
+                if (this.records2.methods.length + this.records2.fields.length + i < this.searchResultButtons.size())
+                    this.searchResultTexts.get(this.records2.methods.length + this.records2.fields.length + i).setFill(
+                            HelloApplication.SELECTED_COLOR
+                    );
             }
             for (int i = 0; i < this.records2.fields.length; i++) {
                 int r = 1;
                 ClassAnalyzer.FieldInfo method = this.records2.fields[i];
                 if (Modifier.isPublic(method.modifiers)) {
-                    if (this.records2.methods.length + i < this.searchResultButtons.size()) this.searchResultButtons.get(this.records2.methods.length + i)[0].resetImage(
-                            new Image(
-                                    Objects.requireNonNull(getClass().getResourceAsStream(
-                                            "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Public.png"
-                                    ))
-                            )
-                    );
+                    if (this.records2.methods.length + i < this.searchResultButtons.size())
+                        this.searchResultButtons.get(this.records2.methods.length + i)[0].resetImage(
+                                new Image(
+                                        Objects.requireNonNull(getClass().getResourceAsStream(
+                                                "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Public.png"
+                                        ))
+                                )
+                        );
                 } else if (Modifier.isPrivate(method.modifiers)) {
-                    if (this.records2.methods.length + i < this.searchResultButtons.size()) this.searchResultButtons.get(this.records2.methods.length + i)[0].resetImage(
-                            new Image(
-                                    Objects.requireNonNull(getClass().getResourceAsStream(
-                                            "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Private.png"
-                                    ))
-                            )
-                    );
+                    if (this.records2.methods.length + i < this.searchResultButtons.size())
+                        this.searchResultButtons.get(this.records2.methods.length + i)[0].resetImage(
+                                new Image(
+                                        Objects.requireNonNull(getClass().getResourceAsStream(
+                                                "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Private.png"
+                                        ))
+                                )
+                        );
                 } else if (Modifier.isProtected(method.modifiers)) {
-                    if (this.records2.methods.length + i < this.searchResultButtons.size()) this.searchResultButtons.get(this.records2.methods.length + i)[0].resetImage(
-                            new Image(
-                                    Objects.requireNonNull(getClass().getResourceAsStream(
-                                            "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Protected.png"
-                                    ))
-                            )
-                    );
+                    if (this.records2.methods.length + i < this.searchResultButtons.size())
+                        this.searchResultButtons.get(this.records2.methods.length + i)[0].resetImage(
+                                new Image(
+                                        Objects.requireNonNull(getClass().getResourceAsStream(
+                                                "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Protected.png"
+                                        ))
+                                )
+                        );
                 } else {
-                    if (this.records2.methods.length + i < this.searchResultButtons.size()) this.searchResultButtons.get(this.records2.methods.length + i)[0].resetImage(
-                            new Image(
-                                    Objects.requireNonNull(getClass().getResourceAsStream(
-                                            "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Default.png"
-                                    ))
-                            )
-                    );
+                    if (this.records2.methods.length + i < this.searchResultButtons.size())
+                        this.searchResultButtons.get(this.records2.methods.length + i)[0].resetImage(
+                                new Image(
+                                        Objects.requireNonNull(getClass().getResourceAsStream(
+                                                "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Default.png"
+                                        ))
+                                )
+                        );
                 }
                 if (Modifier.isFinal(method.modifiers)) {
-                    if (this.records2.methods.length + i < this.searchResultButtons.size()) this.searchResultButtons.get(this.records2.methods.length + i)[r].resetImage(
-                            new Image(
-                                    Objects.requireNonNull(getClass().getResourceAsStream(
-                                            "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Final.png"
-                                    ))
-                            )
-                    );
+                    if (this.records2.methods.length + i < this.searchResultButtons.size())
+                        this.searchResultButtons.get(this.records2.methods.length + i)[r].resetImage(
+                                new Image(
+                                        Objects.requireNonNull(getClass().getResourceAsStream(
+                                                "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Final.png"
+                                        ))
+                                )
+                        );
                     r++;
                 }
                 if (Modifier.isStatic(method.modifiers)) {
-                    if (this.records2.methods.length + i < this.searchResultButtons.size()) this.searchResultButtons.get(this.records2.methods.length + i)[r].resetImage(
-                            new Image(
-                                    Objects.requireNonNull(getClass().getResourceAsStream(
-                                            "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Static.png"
-                                    ))
-                            )
-                    );
+                    if (this.records2.methods.length + i < this.searchResultButtons.size())
+                        this.searchResultButtons.get(this.records2.methods.length + i)[r].resetImage(
+                                new Image(
+                                        Objects.requireNonNull(getClass().getResourceAsStream(
+                                                "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Static.png"
+                                        ))
+                                )
+                        );
                     r++;
                 }
                 if (Modifier.isAbstract(method.modifiers)) {
-                    if (this.records2.methods.length + i < this.searchResultButtons.size()) this.searchResultButtons.get(this.records2.methods.length + i)[r].resetImage(
-                            new Image(
-                                    Objects.requireNonNull(getClass().getResourceAsStream(
-                                            "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Abstract.png"
-                                    ))
-                            )
-                    );
+                    if (this.records2.methods.length + i < this.searchResultButtons.size())
+                        this.searchResultButtons.get(this.records2.methods.length + i)[r].resetImage(
+                                new Image(
+                                        Objects.requireNonNull(getClass().getResourceAsStream(
+                                                "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Abstract.png"
+                                        ))
+                                )
+                        );
                     r++;
                 }
                 if (Modifier.isSynchronized(method.modifiers)) {
-                    if (this.records2.methods.length + i < this.searchResultButtons.size()) if (r < 4) this.searchResultButtons.get(this.records2.methods.length + i)[r].resetImage(
-                            new Image(
-                                    Objects.requireNonNull(getClass().getResourceAsStream(
-                                            "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Synchronized.png"
-                                    ))
-                            )
-                    );
+                    if (this.records2.methods.length + i < this.searchResultButtons.size())
+                        if (r < 4) this.searchResultButtons.get(this.records2.methods.length + i)[r].resetImage(
+                                new Image(
+                                        Objects.requireNonNull(getClass().getResourceAsStream(
+                                                "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Synchronized.png"
+                                        ))
+                                )
+                        );
                 }
                 String params = Modifier.toString(method.modifiers) + " " +
                         method.type + " " +
                         method.name;
-                if (this.records2.methods.length + i < this.searchResultButtons.size()) this.searchResultTexts.get(this.records2.methods.length + i).setText(
-                        params
-                );
+                if (this.records2.methods.length + i < this.searchResultButtons.size())
+                    this.searchResultTexts.get(this.records2.methods.length + i).setText(
+                            params
+                    );
+                if (this.records2.methods.length + this.records2.fields.length + i < this.searchResultButtons.size())
+                    this.searchResultTexts.get(this.records2.methods.length + this.records2.fields.length + i).setFill(
+                            HelloApplication.SELECTED_COLOR
+                    );
+            }
+            for (int i = 0; i < this.records2.constructors.length; i++) {
+                int r = 1;
+                ClassAnalyzer.ConstructorInfo method = this.records2.constructors[i];
+                if (Modifier.isPublic(method.modifiers)) {
+                    if (this.records2.methods.length + this.records2.fields.length + i < this.searchResultButtons.size())
+                        this.searchResultButtons.get(this.records2.methods.length + this.records2.fields.length + i)[0].resetImage(
+                                new Image(
+                                        Objects.requireNonNull(getClass().getResourceAsStream(
+                                                "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Public.png"
+                                        ))
+                                )
+                        );
+                } else if (Modifier.isPrivate(method.modifiers)) {
+                    if (this.records2.methods.length + this.records2.fields.length + i < this.searchResultButtons.size())
+                        this.searchResultButtons.get(this.records2.methods.length + this.records2.fields.length + i)[0].resetImage(
+                                new Image(
+                                        Objects.requireNonNull(getClass().getResourceAsStream(
+                                                "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Private.png"
+                                        ))
+                                )
+                        );
+                } else if (Modifier.isProtected(method.modifiers)) {
+                    if (this.records2.methods.length + this.records2.fields.length + i < this.searchResultButtons.size())
+                        this.searchResultButtons.get(this.records2.methods.length + this.records2.fields.length + i)[0].resetImage(
+                                new Image(
+                                        Objects.requireNonNull(getClass().getResourceAsStream(
+                                                "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Protected.png"
+                                        ))
+                                )
+                        );
+                } else {
+                    if (this.records2.methods.length + this.records2.fields.length + i < this.searchResultButtons.size())
+                        this.searchResultButtons.get(this.records2.methods.length + this.records2.fields.length + i)[0].resetImage(
+                                new Image(
+                                        Objects.requireNonNull(getClass().getResourceAsStream(
+                                                "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Default.png"
+                                        ))
+                                )
+                        );
+                }
+                if (Modifier.isFinal(method.modifiers)) {
+                    if (this.records2.methods.length + this.records2.fields.length + i < this.searchResultButtons.size())
+                        this.searchResultButtons.get(this.records2.methods.length + this.records2.fields.length + i)[r].resetImage(
+                                new Image(
+                                        Objects.requireNonNull(getClass().getResourceAsStream(
+                                                "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Final.png"
+                                        ))
+                                )
+                        );
+                    r++;
+                }
+                if (Modifier.isStatic(method.modifiers)) {
+                    if (this.records2.methods.length + this.records2.fields.length + i < this.searchResultButtons.size())
+                        this.searchResultButtons.get(this.records2.methods.length + this.records2.fields.length + i)[r].resetImage(
+                                new Image(
+                                        Objects.requireNonNull(getClass().getResourceAsStream(
+                                                "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Static.png"
+                                        ))
+                                )
+                        );
+                    r++;
+                }
+                if (Modifier.isAbstract(method.modifiers)) {
+                    if (this.records2.methods.length + this.records2.fields.length + i < this.searchResultButtons.size())
+                        this.searchResultButtons.get(this.records2.methods.length + this.records2.fields.length + i)[r].resetImage(
+                                new Image(
+                                        Objects.requireNonNull(getClass().getResourceAsStream(
+                                                "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Abstract.png"
+                                        ))
+                                )
+                        );
+                    r++;
+                }
+                if (Modifier.isSynchronized(method.modifiers)) {
+                    if (this.records2.methods.length + this.records2.fields.length + i < this.searchResultButtons.size())
+                        if (r < 4)
+                            this.searchResultButtons.get(this.records2.methods.length + this.records2.fields.length + i)[r].resetImage(
+                                    new Image(
+                                            Objects.requireNonNull(getClass().getResourceAsStream(
+                                                    "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Synchronized.png"
+                                            ))
+                                    )
+                            );
+                }
+                String params = Modifier.toString(method.modifiers) + " " +
+                        records2.fullClassName + " " +
+                        records2.simpleName;
+                if (this.records2.methods.length + this.records2.fields.length + i < this.searchResultButtons.size())
+                    this.searchResultTexts.get(this.records2.methods.length + this.records2.fields.length + i).setText(
+                            params
+                    );
+                if (this.records2.methods.length + this.records2.fields.length + i < this.searchResultButtons.size())
+                    this.searchResultTexts.get(this.records2.methods.length + this.records2.fields.length + i).setFill(
+                            FUNCTION_COLOR
+                    );
             }
 
         }
@@ -534,7 +689,8 @@ public class SearchBox extends BaseLabel {
 
     public enum SearchType {
         METHOD,
-        FIELD
+        FIELD,
+        CONSTRUCTOR
     }
 
     public Rectangle getMask() {

@@ -8,11 +8,14 @@ import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.Node;
 
 public class ConnectingLine extends BaseLabel {
 
-    public Circle startPoint;
-    public Circle endPoint;
+    // 高亮颜色
+    public static Color HIGHLIGHT_COLOR = Color.rgb(255, 255, 255);
+
+    transient public Circle startPoint;
+    transient public Circle endPoint;
     public AutoBezierCurve bezierCurve;
-    public Color lineStartColor;
-    public Color lineEndColor;
+    transient public Color lineStartColor;
+    transient public Color lineEndColor;
 
     public ConnectingLine(double startX, double startY, double endX, double endY, Color lineStartColor, Color lineEndColor) {
         this.base = new Group();
@@ -60,8 +63,14 @@ public class ConnectingLine extends BaseLabel {
     @Override
     public void addTo(Group root) {
         this.root = root;
-        this.base.getChildren().add(this.bezierCurve);
-        this.root.getChildren().add(this.base);
+        if (!this.base.getChildren().contains(this.bezierCurve)) this.base.getChildren().add(this.bezierCurve);
+        if (!this.root.getChildren().contains(this.base)) this.root.getChildren().add(this.base);
+    }
+
+    public Group getBaseGroup(Group root) {
+        this.root = root;
+        if (!this.base.getChildren().contains(this.bezierCurve)) this.base.getChildren().add(this.bezierCurve);
+        return this.base;
     }
 
     @Override
@@ -115,4 +124,19 @@ public class ConnectingLine extends BaseLabel {
     public Node.VarType getVarType() {
         return null;
     }
+
+    // 聚焦模式
+    public void focusMode(boolean focus) {
+        if (!focus) {
+            this.bezierCurve.setGradientColors(this.lineStartColor, HIGHLIGHT_COLOR);
+        } else {
+            this.bezierCurve.setGradientColors(HIGHLIGHT_COLOR, this.lineEndColor);
+        }
+    }
+
+    // 取消聚焦模式
+    public void cancelFocusMode() {
+        this.bezierCurve.setGradientColors(this.lineStartColor, this.lineEndColor);
+    }
+
 }

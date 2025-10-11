@@ -1,19 +1,34 @@
 package org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor;
 
+import com.alibaba.fastjson2.JSONArray;
+import com.alibaba.fastjson2.JSONObject;
 import javafx.application.Platform;
 import javafx.scene.Group;
+import javafx.scene.paint.Color;
+import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.Nodes.InputNodes;
+import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.Nodes.NodeTopBarColor;
+import org.bxwbb.spigotplugincreatertool.windowLabel.ConnectingLine;
+import org.bxwbb.spigotplugincreatertool.windowLabel.SelfAdaptionListSlider;
 
+import java.awt.*;
+import java.io.*;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.function.Function;
 
-public class NodeCtr {
+public class NodeCtr implements Serializable {
 
-    public record NodeInput(Object value, Node.VarType type) {}
+    public record NodeInput(Object value, Node.VarType type) {
+    }
 
     @FunctionalInterface
-    public interface NodeGetOutput extends Function<List<NodeInput>, Object> {}
+    public interface NodeGetOutput extends Function<List<NodeInput>, Object> {
+    }
+
+    public List<Object> outputs = new ArrayList<>();
 
     public Node node;
     public List<Node.VarType> inputTypes;
@@ -24,6 +39,7 @@ public class NodeCtr {
     public List<NodeGetOutput> getOutputs;
     // 代表的方法路径
     public String methodPath;
+    public UUID uuid;
 
     public NodeCtr(double startX, double startY, Node node, List<NodeGetOutput> getOutputs, String methodPath) {
         this.methodPath = methodPath;
@@ -31,6 +47,7 @@ public class NodeCtr {
         this.startY = startY;
         this.getOutputs = getOutputs;
         this.node = node;
+        this.uuid = node.uuid;
         this.inputTypes = new ArrayList<>();
         this.outputTypes = new ArrayList<>();
         for (Node.NodeCardNode nodeCardNode : node.leftCardNodes) {
@@ -38,6 +55,7 @@ public class NodeCtr {
         }
         for (Node.NodeCardNode nodeCardNode : node.rightCardNodes) {
             this.outputTypes.add(nodeCardNode.varType);
+            this.outputs.add(0);
         }
     }
 
@@ -69,12 +87,27 @@ public class NodeCtr {
         List<NodeInput> inp = new ArrayList<>();
         for (int i = 0; i < this.inputTypes.size(); i++) {
             inp.add(new NodeInput(this.node.leftCardNodes.get(i).edit.getData(), this.inputTypes.get(i)));
+            int finalI = i;
+            Platform.runLater(() -> {
+                if (!this.inputTypes.get(finalI).equals(Node.VarType.SELF_ADAPTION_LIST)) {
+                    if (this.node.leftDataLines.get(finalI) != null)
+                        this.node.leftDataLines.get(finalI).bezierCurve.startSignalAnimation(NodeEditor.EXECUTE_LINE_COLOR, NodeEditor.EXECUTE_LINE_DURATION);
+                } else {
+                    SelfAdaptionListSlider slider = (SelfAdaptionListSlider) this.node.leftCardNodes.get(finalI).edit;
+                    for (ConnectingLine dataLine : slider.dataLines) {
+                        dataLine.bezierCurve.startSignalAnimation(NodeEditor.EXECUTE_LINE_COLOR, NodeEditor.EXECUTE_LINE_DURATION);
+                    }
+                }
+            });
+        }
+        for (int i = 0; i < this.outputTypes.size(); i++) {
+            this.outputs.set(i, this.getOutputs.get(i).apply(inp));
         }
         for (int i = 0; i < this.outputTypes.size(); i++) {
             int finalI = i;
             Platform.runLater(() -> {
                 try {
-                    this.node.rightCardNodes.get(finalI).edit.setData(this.getOutputs.get(finalI).apply(inp));
+                    this.node.rightCardNodes.get(finalI).edit.setData(this.outputs.get(finalI));
                 } catch (ClassNotFoundException e) {
                     throw new RuntimeException(e);
                 }

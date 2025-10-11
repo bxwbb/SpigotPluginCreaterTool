@@ -16,7 +16,11 @@ module org.bxwbb.spigotplugincreatertool {
     requires com.alibaba.fastjson2;
     requires java.logging;
     requires org.slf4j;
+    requires hessian;
+    requires java.desktop;
 
     opens org.bxwbb.spigotplugincreatertool to javafx.fxml;
+    opens org.bxwbb.spigotplugincreatertool.windowLabel;
+    opens org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor;
     exports org.bxwbb.spigotplugincreatertool;
 }

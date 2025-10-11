@@ -196,6 +196,67 @@ public class NodeCreater {
         );
     }
 
+    public static NodeCtr createNode(double x, double y, ClassAnalyzer.ClassInfo records2, ClassAnalyzer.ConstructorInfo constructorInfo) throws Exception {
+
+        List<Node.NodeCardNode> leftCardNodes = new ArrayList<>();
+        ClassAnalyzer.ClassInfo classinfo;
+        for (int i = 0; i < constructorInfo.parameterTypes.length; i++) {
+            classinfo = getClassInfo(constructorInfo.parameterTypes[i]);
+            leftCardNodes.add(
+                    new Node.NodeCardNode(
+                            constructorInfo.parameterNames[i],
+                            List.of(
+                                    constructorInfo.parameterNames[i]
+                            ),
+                            getVarType(constructorInfo.parameterTypes[i]),
+                            true,
+                            List.of(),
+                            getData(constructorInfo.parameterTypes[i]),
+                            classinfo
+                    )
+            );
+        }
+        List<Node.NodeCardNode> rightCardNodes = new ArrayList<>();
+        classinfo = getClassInfo(records2.fullClassName);
+        rightCardNodes.add(
+                new Node.NodeCardNode(
+                        "构造对象",
+                        List.of(
+                                "构造对象"
+                        ),
+                        getVarType(records2.fullClassName),
+                        true,
+                        List.of(),
+                        getData(records2.fullClassName),
+                        classinfo
+                )
+        );
+        List<NodeCtr.NodeGetOutput> getOutputs = getNodeGetOutputs(records2, constructorInfo);
+        for (Node.NodeCardNode rightCardNode : rightCardNodes) {
+            rightCardNode.edit.setVisible(false);
+        }
+        return new NodeCtr(
+                x,
+                y,
+                new Node(
+                        x,
+                        y,
+                        NodeTopBarColor.empty,
+                        "来自内部构造方法:" + records2.fullClassName + "::" + records2.simpleName,
+                        List.of(
+                                "来自内部构造方法:" + records2.fullClassName + "::" + records2.simpleName
+                        ),
+                        leftCardNodes,
+                        rightCardNodes,
+                        Color.rgb(211, 47, 47),
+                        true,
+                        true
+                ),
+                getOutputs,
+                records2.fullClassName + "." + records2.simpleName
+        );
+    }
+
     @NotNull
     private static List<NodeCtr.NodeGetOutput> getNodeGetOutputs(ClassAnalyzer.ClassInfo records2, ClassAnalyzer.MethodInfo methodInfo) {
         List<NodeCtr.NodeGetOutput> getOutputs = new ArrayList<>();
@@ -242,6 +303,7 @@ public class NodeCreater {
         return getOutputs;
     }
 
+    @NotNull
     private static List<NodeCtr.NodeGetOutput> getNodeGetOutputs(ClassAnalyzer.ClassInfo records2, ClassAnalyzer.FieldInfo fieldInfo) {
         List<NodeCtr.NodeGetOutput> getOutputs = new ArrayList<>();
         if (Modifier.isStatic(fieldInfo.modifiers)) {
@@ -268,7 +330,7 @@ public class NodeCreater {
                                     records2,
                                     fieldInfo,
                                     HelloApplication.paths,
-                                    inputs.getFirst().value()
+                                    inputs.getLast().value()
                             );
                             return func.get();
                         } catch (Exception e) {
@@ -277,6 +339,27 @@ public class NodeCreater {
                     }
             );
         }
+        return getOutputs;
+    }
+
+    private static List<NodeCtr.NodeGetOutput> getNodeGetOutputs(ClassAnalyzer.ClassInfo records2, ClassAnalyzer.ConstructorInfo constructorInfo) {
+        List<NodeCtr.NodeGetOutput> getOutputs = new ArrayList<>();
+        getOutputs.add(
+                inputs -> {
+                    try {
+                        Function<List<Object>, Object> func = ClassAnalyzer.getFunctionFromConstructorInfo(
+                                constructorInfo,
+                                records2,
+                                HelloApplication.paths
+                        );
+                        List<Object> i = new ArrayList<>();
+                        inputs.forEach(input -> i.add(input.value()));
+                        return func.apply(i);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+        );
         return getOutputs;
     }
 

@@ -8,8 +8,8 @@ public abstract class BaseLabel {
     public double startY = 0;
     public double endX = 0;
     public double endY = 0;
-    public Group root;
-    public Group base;
+    transient public Group root;
+    transient public Group base;
     public boolean visible = true;
 
     public abstract void resetPos(double x, double y);
@@ -28,6 +28,12 @@ public abstract class BaseLabel {
 
     public void update() {
         this.resetPos(this.startX, this.startY);
+    }
+
+    public void resetSizePos(double x, double y) {
+        this.endX = x;
+        this.endY = y;
+        this.resetSize(this.endX - this.startX, this.endY - this.startY);
     }
 
 }

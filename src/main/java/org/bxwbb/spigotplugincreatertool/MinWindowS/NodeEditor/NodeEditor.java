@@ -1,5 +1,7 @@
 package org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor;
 
+import com.alibaba.fastjson2.JSONArray;
+import com.alibaba.fastjson2.JSONObject;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.event.EventHandler;
@@ -12,18 +14,26 @@ import javafx.scene.input.ScrollEvent;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Line;
 import javafx.scene.shape.Rectangle;
+import javafx.scene.shape.Shape;
+import javafx.stage.FileChooser;
+import org.bxwbb.spigotplugincreatertool.HelloApplication;
 import org.bxwbb.spigotplugincreatertool.MinWindow;
 import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.Nodes.InputNodes;
 import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.Nodes.NodeTopBarColor;
 import org.bxwbb.spigotplugincreatertool.MinWindowType;
-import org.bxwbb.spigotplugincreatertool.windowLabel.Button;
-import org.bxwbb.spigotplugincreatertool.windowLabel.ConnectingLine;
+import org.bxwbb.spigotplugincreatertool.windowLabel.*;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.util.*;
 
 public class NodeEditor extends MinWindowType {
+
+    static final Logger logger = LoggerFactory.getLogger(NodeEditor.class);
 
     // 网格颜色
     public static Color GRID_COLOR = Color.color(0.3, 0.3, 0.3);
@@ -37,6 +47,10 @@ public class NodeEditor extends MinWindowType {
     public static float LINE_SPACING = 30.0f;
     // 顺序节点连接循环错误颜色
     public static Color ERROR_COLOR = Color.rgb(255, 118, 118);
+    // 执行线动画点颜色
+    public static Color EXECUTE_LINE_COLOR = Color.rgb(255, 255, 255);
+    // 执行线动画时长
+    public static double EXECUTE_LINE_DURATION = 0.5;
 
     public double cameraX = 0.0f;
     public double cameraY = 0.0f;
@@ -51,14 +65,11 @@ public class NodeEditor extends MinWindowType {
     public List<ConnectingLine> executeLine = new ArrayList<>();
     // 数据传输连接线
     public List<ConnectingLine> dataLine = new ArrayList<>();
-    public Group connectingLineGroup;
-    public Group connectingDataLineGroup;
     // 聚焦节点
     public Node focusNode;
     public NodeCtr runNodectr;
     public Node.NodeCardNode focusCardNode;
     public Group trueBase;
-
 
     // 临时记录鼠标坐标
     private double rMouseX;
@@ -149,6 +160,10 @@ public class NodeEditor extends MinWindowType {
     };
     private RunCode runCode;
     private RunACode runACode;
+    private TextButton selectFileButton;
+    private MinecraftServerSearchBox searchBox;
+    private Button openFileButton;
+    private Button saveFileButton;
 
     public NodeEditor(Group root, Group baseGroup, Group topBase, Rectangle background) throws ClassNotFoundException {
         super(root, baseGroup, topBase, background);
@@ -157,8 +172,6 @@ public class NodeEditor extends MinWindowType {
 
     public void init() throws ClassNotFoundException {
         this.trueBase = new Group();
-        this.connectingLineGroup = new Group();
-        this.connectingDataLineGroup = new Group();
         this.title = "节点编辑器";
         this.background.setFill(BG_COLOR);
         for (int i = 0; i < HORIZONTAL_LINE_COUNT; i++) {
@@ -190,8 +203,91 @@ public class NodeEditor extends MinWindowType {
         this.background.addEventHandler(MouseEvent.MOUSE_RELEASED, releaseHandler);
         this.background.addEventHandler(ScrollEvent.SCROLL, scrollHandler);
         this.background.addEventHandler(MouseEvent.ANY, mpHandler);
-
-        this.runButton = new Button(this.startX + this.getEditorNameWidth() + 30, this.startY + MinWindow.PADDING + 15.0, this.startX + this.getEditorNameWidth() + 50, this.startY + MinWindow.PADDING + 35.0, false);
+        this.selectFileButton = new TextButton(this.startX + this.getEditorNameWidth() + 30, this.startY + MinWindow.PADDING + 15.0, this.startX + this.getEditorNameWidth() + 200, this.startY + MinWindow.PADDING + 35.0, "选择文件", true);
+        selectFileButton.addTo(this.topBase);
+        this.selectFileButton.background.setOnMousePressed(event -> {
+            if (this.searchBox != null) this.searchBox.delete();
+            this.searchBox = new MinecraftServerSearchBox(this.startX + this.getEditorNameWidth() + 30, this.startY + MinWindow.PADDING + 30.0, 1000, 600);
+            this.searchBox.addTo(this.topBase);
+        });
+        this.openFileButton = new Button(this.startX + this.getEditorNameWidth() + 205, this.startY + MinWindow.PADDING + 15.0, this.startX + this.getEditorNameWidth() + 225, this.startY + MinWindow.PADDING + 35.0, false);
+        this.openFileButton.resetImage(
+                new Image(
+                        Objects.requireNonNull(getClass().getResourceAsStream("/org/bxwbb/spigotplugincreatertool/icon/MinecraftServerCreater/OpenFile.png"))
+                )
+        );
+        this.openFileButton.addTo(this.topBase);
+        this.openFileButton.background.setOnMousePressed(event -> {
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("打开蓝图文件");
+            FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("蓝图文件 (*.bbm)", "*.bbm");
+            fileChooser.getExtensionFilters().add(extFilter);
+            File selectedFile = fileChooser.showOpenDialog(HelloApplication.primaryStage);
+            // 将选择文件的内容解析为Json对象
+            try {
+                if (selectedFile == null) {
+                    logger.error("找不到的文件路径 - null");
+                    return;
+                }
+                if (!selectedFile.exists()) {
+                    logger.error("找不到的文件路径 - {}", selectedFile.getAbsolutePath());
+                    return;
+                }
+                JSONObject jsonObject = JSONObject.parseObject(new String(Files.readAllBytes(selectedFile.toPath())));
+                for (NodeCtr nodeCtr : this.nodesCtr) {
+                    nodeCtr.delete();
+                }
+                for (ConnectingLine line : this.dataLine) {
+                    line.delete();
+                }
+                for (ConnectingLine line : this.executeLine) {
+                    line.delete();
+                }
+                this.nodesCtr.clear();
+                this.nodes.clear();
+                this.nodesCtr = NodeEditor.deserialize(jsonObject.getJSONArray("nodes"), this.trueBase);
+                for (NodeCtr nodeCtr : this.nodesCtr) {
+                    this.nodes.add(nodeCtr.node);
+                }
+                final List<Node> rNodes = new ArrayList<>(this.nodes);
+                for (Node node : rNodes) {
+                    node.addTo();
+                }
+            } catch (IOException | ClassNotFoundException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        this.saveFileButton = new Button(this.startX + this.getEditorNameWidth() + 230, this.startY + MinWindow.PADDING + 15.0, this.startX + this.getEditorNameWidth() + 250, this.startY + MinWindow.PADDING + 35.0, false);
+        this.saveFileButton.resetImage(
+                new Image(
+                        Objects.requireNonNull(getClass().getResourceAsStream("/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/SaveFile.png"))
+                )
+        );
+        this.saveFileButton.addTo(this.topBase);
+        this.saveFileButton.background.setOnMousePressed(event -> {
+            FileChooser fileChooserSave = new FileChooser();
+            fileChooserSave.setTitle("保存蓝图文件");
+            FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("蓝图文件 (*.bbm)", "*.bbm");
+            fileChooserSave.getExtensionFilters().add(extFilter);
+            File fileSave = fileChooserSave.showSaveDialog(HelloApplication.primaryStage);
+            JSONObject saveJson = new JSONObject();
+            JSONArray nodesArray = this.serialize();
+            saveJson.put("nodes", nodesArray);
+            saveJson.put("version", 0);
+            saveJson.put("name", "Blueprint");
+            saveJson.put("description", "");
+            saveJson.put("author", "");
+            saveJson.put("license", "");
+            saveJson.put("cameraX", this.cameraX);
+            saveJson.put("cameraY", this.cameraY);
+            saveJson.put("cameraScale", this.cameraScale);
+            try {
+                Files.write(fileSave.toPath(), saveJson.toJSONString().getBytes());
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        this.runButton = new Button(this.startX + this.getEditorNameWidth() + 500, this.startY + MinWindow.PADDING + 15.0, this.startX + this.getEditorNameWidth() + 520, this.startY + MinWindow.PADDING + 35.0, false);
         this.runButton.addTo(this.topBase);
         this.runButton.background.setOnMouseClicked(event -> {
             if (!(Boolean) this.runButton.getData()) {
@@ -214,7 +310,7 @@ public class NodeEditor extends MinWindowType {
                 }
             }
         });
-        this.nextButton = new Button(this.startX + this.getEditorNameWidth() + 50, this.startY + MinWindow.PADDING + 15.0, this.startX + this.getEditorNameWidth() + 70, this.startY + MinWindow.PADDING + 35.0, false);
+        this.nextButton = new Button(this.startX + this.getEditorNameWidth() + 525, this.startY + MinWindow.PADDING + 15.0, this.startX + this.getEditorNameWidth() + 545, this.startY + MinWindow.PADDING + 35.0, false);
         this.nextButton.resetImage(new Image(Objects.requireNonNull(this.getClass().getResourceAsStream("/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/next.png"))));
         this.nextButton.addTo(this.topBase);
         this.nextButton.background.setOnMouseClicked(event -> {
@@ -227,7 +323,7 @@ public class NodeEditor extends MinWindowType {
                     }
                 }
                 if (this.runNodectr == null) {
-                    System.out.println("没有程序入口点");
+                    logger.error("没有程序入口点");
                     return;
                 } else {
                     runButton.setData(true);
@@ -261,239 +357,12 @@ public class NodeEditor extends MinWindowType {
             this.nextButton.setData(false);
         });
 
-        this.trueBase.getChildren().add(this.connectingLineGroup);
-        this.trueBase.getChildren().add(this.connectingDataLineGroup);
-
-//        this.nodes.add(new Node(100.0, 100.0, this.base, "测试节点-Test node", new ArrayList<>(), Arrays.asList(
-//                new Node.NodeCardNode("测试字节型参数A-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.BYTE, true, null, (byte) 0),
-//                new Node.NodeCardNode("测试短整型参数B-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.SHORT, true, null, (short) 0),
-//                new Node.NodeCardNode("测试整型参数C-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.INT, true, null, 0),
-//                new Node.NodeCardNode("测试长整型参数D-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.LONG, true, null, (long) 0),
-//                new Node.NodeCardNode("测试单精度浮点数参数E-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.FLOAT, true, null, 0.0f),
-//                new Node.NodeCardNode("测试双精度浮点数参数F-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.DOUBLE, true, null, 0.0d),
-//                new Node.NodeCardNode("测试布尔参数G-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.BOOLEAN, true, null, true),
-//                new Node.NodeCardNode("测试字符型参数H-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.CHAR, true, null, 'A'),
-//                new Node.NodeCardNode("测试字符串参数I-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.STRING, true, null, "文本"),
-//                new Node.NodeCardNode("测试字节型列表参数-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.LIST, true, List.of(
-//                        Node.VarType.BYTE
-//                ), List.of(
-//                        new SliderByte(0, 0, 0, 0, (byte) 0, "byte", List.of("参数描述-Parameter description"), true, true, (byte) -128, (byte) 127, (byte) 1),
-//                        new SliderByte(0, 0, 0, 0, (byte) 0, "byte", List.of("参数描述-Parameter description"), true, true, (byte) -128, (byte) 127, (byte) 1),
-//                        new SliderByte(0, 0, 0, 0, (byte) 0, "byte", List.of("参数描述-Parameter description"), true, true, (byte) -128, (byte) 127, (byte) 1),
-//                        new SliderByte(0, 0, 0, 0, (byte) 0, "byte", List.of("参数描述-Parameter description"), true, true, (byte) -128, (byte) 127, (byte) 1)
-//                )),
-//                new Node.NodeCardNode("测试短整型列表参数-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.LIST, true, List.of(
-//                        Node.VarType.SHORT
-//                ), List.of(
-//                        new SliderShort(0, 0, 0, 0, (short) 0, "short", List.of("参数描述-Parameter description"), false, false, (short) 0, (short) 0, (short) 1),
-//                        new SliderShort(0, 0, 0, 0, (short) 0, "short", List.of("参数描述-Parameter description"), false, false, (short) 0, (short) 0, (short) 1),
-//                        new SliderShort(0, 0, 0, 0, (short) 0, "short", List.of("参数描述-Parameter description"), false, false, (short) 0, (short) 0, (short) 1),
-//                        new SliderShort(0, 0, 0, 0, (short) 0, "short", List.of("参数描述-Parameter description"), false, false, (short) 0, (short) 0, (short) 1)
-//                )),
-//                new Node.NodeCardNode("测试整型列表参数-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.LIST, true, List.of(
-//                        Node.VarType.INT
-//                ), List.of(
-//                        new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                        new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                        new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                        new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1)
-//                )),
-//                new Node.NodeCardNode("测试长整型列表参数-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.LIST, true, List.of(
-//                        Node.VarType.LONG
-//                ), List.of(
-//                        new SliderLong(0, 0, 0, 0, 0, "long", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                        new SliderLong(0, 0, 0, 0, 0, "long", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                        new SliderLong(0, 0, 0, 0, 0, "long", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                        new SliderLong(0, 0, 0, 0, 0, "long", List.of("参数描述-Parameter description"), false, false, 0, 0, 1)
-//                )),
-//                new Node.NodeCardNode("测试单精度浮点列表参数-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.LIST, true, List.of(
-//                        Node.VarType.FLOAT
-//                ), List.of(
-//                        new SliderFloat(0, 0, 0, 0, 0.0f, "float", List.of("参数描述-Parameter description"), false, false, 0.0f, 0.0f, 0.5f),
-//                        new SliderFloat(0, 0, 0, 0, 0.0f, "float", List.of("参数描述-Parameter description"), false, false, 0.0f, 0.0f, 0.5f),
-//                        new SliderFloat(0, 0, 0, 0, 0.0f, "float", List.of("参数描述-Parameter description"), false, false, 0.0f, 0.0f, 0.5f),
-//                        new SliderFloat(0, 0, 0, 0, 0.0f, "float", List.of("参数描述-Parameter description"), false, false, 0.0f, 0.0f, 0.5f)
-//                )),
-//                new Node.NodeCardNode("测试双精度浮点列表参数-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.LIST, true, List.of(
-//                        Node.VarType.DOUBLE
-//                ), List.of(
-//                        new SliderDouble(0, 0, 0, 0, 0.0, "double", List.of("参数描述-Parameter description"), false, false, 0.0, 0.0, 0.5),
-//                        new SliderDouble(0, 0, 0, 0, 0.0, "double", List.of("参数描述-Parameter description"), false, false, 0.0, 0.0, 0.5),
-//                        new SliderDouble(0, 0, 0, 0, 0.0, "double", List.of("参数描述-Parameter description"), false, false, 0.0, 0.0, 0.5),
-//                        new SliderDouble(0, 0, 0, 0, 0.0, "double", List.of("参数描述-Parameter description"), false, false, 0.0, 0.0, 0.5)
-//                )),
-//                new Node.NodeCardNode("测试布尔列表参数-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.LIST, true, List.of(
-//                        Node.VarType.BOOLEAN
-//                ), List.of(
-//                        new BooleanInput(0, 0, 0, 0, true, "boolean", List.of("参数描述-Parameter description")),
-//                        new BooleanInput(0, 0, 0, 0, true, "boolean", List.of("参数描述-Parameter description")),
-//                        new BooleanInput(0, 0, 0, 0, true, "boolean", List.of("参数描述-Parameter description")),
-//                        new BooleanInput(0, 0, 0, 0, true, "boolean", List.of("参数描述-Parameter description"))
-//                )),
-//                new Node.NodeCardNode("测试字节型列表参数-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.LIST, true, List.of(
-//                        Node.VarType.CHAR
-//                ), List.of(
-//                        new SliderChar(0, 0, 0, 0, 'A', "char", List.of("参数描述-Parameter description"), (char) 1),
-//                        new SliderChar(0, 0, 0, 0, 'A', "char", List.of("参数描述-Parameter description"), (char) 1),
-//                        new SliderChar(0, 0, 0, 0, 'A', "char", List.of("参数描述-Parameter description"), (char) 1),
-//                        new SliderChar(0, 0, 0, 0, 'A', "char", List.of("参数描述-Parameter description"), (char) 1)
-//                )),
-//                new Node.NodeCardNode("测试字符串列表参数-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.LIST, true, List.of(
-//                        Node.VarType.STRING
-//                ), List.of(
-//                        new StringInput(0, 0, 0, 0, "string", List.of("参数名-Parameter name"), "文本"),
-//                        new StringInput(0, 0, 0, 0, "string", List.of("参数名-Parameter name"), "文本"),
-//                        new StringInput(0, 0, 0, 0, "string", List.of("参数名-Parameter name"), "文本"),
-//                        new StringInput(0, 0, 0, 0, "string", List.of("参数名-Parameter name"), "文本")
-//                )),
-//                new Node.NodeCardNode("测试二维列表参数-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.LIST, true, List.of(
-//                        Node.VarType.LIST, Node.VarType.INT
-//                ), List.of(
-//                        new ListSliderLong(0, 0, 0, 0, "list", List.of("参数名-Parameter name"), List.of(
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1)
-//                        ), Node.VarType.INT),
-//                        new ListSliderLong(0, 0, 0, 0, "list", List.of("参数名-Parameter name"), List.of(
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1)
-//                        ), Node.VarType.INT),
-//                        new ListSliderLong(0, 0, 0, 0, "list", List.of("参数名-Parameter name"), List.of(
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1)
-//                        ), Node.VarType.INT),
-//                        new ListSliderLong(0, 0, 0, 0, "list", List.of("参数名-Parameter name"), List.of(
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1)
-//                        ), Node.VarType.INT)
-//                ))
-//        ), Arrays.asList(
-//                new Node.NodeCardNode("测试字节型参数AI-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.BYTE, false, null, (byte) 0),
-//                new Node.NodeCardNode("测试短整型参数BI-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.SHORT, false, null, (short) 0),
-//                new Node.NodeCardNode("测试整型参数CI-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.INT, false, null, 0),
-//                new Node.NodeCardNode("测试长整型参数DI-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.LONG, false, null, 0L),
-//                new Node.NodeCardNode("测试单精度浮点数参数EI-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.FLOAT, false, null, 0.0f),
-//                new Node.NodeCardNode("测试双精度浮点数参数FI-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.DOUBLE, false, null, 0.0d),
-//                new Node.NodeCardNode("测试布尔参数GI-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.BOOLEAN, false, null, false),
-//                new Node.NodeCardNode("测试字符型参数HI-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.CHAR, false, null, 'A'),
-//                new Node.NodeCardNode("测试字符串型参数II-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.STRING, false, null, "文本"),
-//                new Node.NodeCardNode("测试字节型列表参数-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.LIST, false, List.of(
-//                        Node.VarType.BYTE
-//                ), List.of(
-//                        new SliderByte(0, 0, 0, 0, (byte) 0, "byte", List.of("参数描述-Parameter description"), true, true, (byte) -128, (byte) 127, (byte) 1),
-//                        new SliderByte(0, 0, 0, 0, (byte) 0, "byte", List.of("参数描述-Parameter description"), true, true, (byte) -128, (byte) 127, (byte) 1),
-//                        new SliderByte(0, 0, 0, 0, (byte) 0, "byte", List.of("参数描述-Parameter description"), true, true, (byte) -128, (byte) 127, (byte) 1),
-//                        new SliderByte(0, 0, 0, 0, (byte) 0, "byte", List.of("参数描述-Parameter description"), true, true, (byte) -128, (byte) 127, (byte) 1)
-//                )),
-//                new Node.NodeCardNode("测试短整型列表参数-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.LIST, false, List.of(
-//                        Node.VarType.SHORT
-//                ), List.of(
-//                        new SliderShort(0, 0, 0, 0, (short) 0, "short", List.of("参数描述-Parameter description"), false, false, (short) 0, (short) 0, (short) 1),
-//                        new SliderShort(0, 0, 0, 0, (short) 0, "short", List.of("参数描述-Parameter description"), false, false, (short) 0, (short) 0, (short) 1),
-//                        new SliderShort(0, 0, 0, 0, (short) 0, "short", List.of("参数描述-Parameter description"), false, false, (short) 0, (short) 0, (short) 1),
-//                        new SliderShort(0, 0, 0, 0, (short) 0, "short", List.of("参数描述-Parameter description"), false, false, (short) 0, (short) 0, (short) 1)
-//                )),
-//                new Node.NodeCardNode("测试整型列表参数-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.LIST, false, List.of(
-//                        Node.VarType.INT
-//                ), List.of(
-//                        new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                        new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                        new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                        new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1)
-//                )),
-//                new Node.NodeCardNode("测试长整型列表参数-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.LIST, false, List.of(
-//                        Node.VarType.LONG
-//                ), List.of(
-//                        new SliderLong(0, 0, 0, 0, 0, "long", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                        new SliderLong(0, 0, 0, 0, 0, "long", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                        new SliderLong(0, 0, 0, 0, 0, "long", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                        new SliderLong(0, 0, 0, 0, 0, "long", List.of("参数描述-Parameter description"), false, false, 0, 0, 1)
-//                )),
-//                new Node.NodeCardNode("测试单精度浮点列表参数-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.LIST, false, List.of(
-//                        Node.VarType.FLOAT
-//                ), List.of(
-//                        new SliderFloat(0, 0, 0, 0, 0.0f, "float", List.of("参数描述-Parameter description"), false, false, 0.0f, 0.0f, 0.5f),
-//                        new SliderFloat(0, 0, 0, 0, 0.0f, "float", List.of("参数描述-Parameter description"), false, false, 0.0f, 0.0f, 0.5f),
-//                        new SliderFloat(0, 0, 0, 0, 0.0f, "float", List.of("参数描述-Parameter description"), false, false, 0.0f, 0.0f, 0.5f),
-//                        new SliderFloat(0, 0, 0, 0, 0.0f, "float", List.of("参数描述-Parameter description"), false, false, 0.0f, 0.0f, 0.5f)
-//                )),
-//                new Node.NodeCardNode("测试双精度浮点列表参数-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.LIST, false, List.of(
-//                        Node.VarType.DOUBLE
-//                ), List.of(
-//                        new SliderDouble(0, 0, 0, 0, 0.0, "double", List.of("参数描述-Parameter description"), false, false, 0.0, 0.0, 0.5),
-//                        new SliderDouble(0, 0, 0, 0, 0.0, "double", List.of("参数描述-Parameter description"), false, false, 0.0, 0.0, 0.5),
-//                        new SliderDouble(0, 0, 0, 0, 0.0, "double", List.of("参数描述-Parameter description"), false, false, 0.0, 0.0, 0.5),
-//                        new SliderDouble(0, 0, 0, 0, 0.0, "double", List.of("参数描述-Parameter description"), false, false, 0.0, 0.0, 0.5)
-//                )),
-//                new Node.NodeCardNode("测试布尔列表参数-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.LIST, false, List.of(
-//                        Node.VarType.BOOLEAN
-//                ), List.of(
-//                        new BooleanInput(0, 0, 0, 0, true, "boolean", List.of("参数描述-Parameter description")),
-//                        new BooleanInput(0, 0, 0, 0, true, "boolean", List.of("参数描述-Parameter description")),
-//                        new BooleanInput(0, 0, 0, 0, true, "boolean", List.of("参数描述-Parameter description")),
-//                        new BooleanInput(0, 0, 0, 0, true, "boolean", List.of("参数描述-Parameter description"))
-//                )),
-//                new Node.NodeCardNode("测试字节型列表参数-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.LIST, false, List.of(
-//                        Node.VarType.CHAR
-//                ), List.of(
-//                        new SliderChar(0, 0, 0, 0, 'A', "char", List.of("参数描述-Parameter description"), (char) 1),
-//                        new SliderChar(0, 0, 0, 0, 'A', "char", List.of("参数描述-Parameter description"), (char) 1),
-//                        new SliderChar(0, 0, 0, 0, 'A', "char", List.of("参数描述-Parameter description"), (char) 1),
-//                        new SliderChar(0, 0, 0, 0, 'A', "char", List.of("参数描述-Parameter description"), (char) 1)
-//                )),
-//                new Node.NodeCardNode("测试字符串列表参数-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.LIST, false, List.of(
-//                        Node.VarType.STRING
-//                ), List.of(
-//                        new StringInput(0, 0, 0, 0, "string", List.of("参数名-Parameter name"), "文本"),
-//                        new StringInput(0, 0, 0, 0, "string", List.of("参数名-Parameter name"), "文本"),
-//                        new StringInput(0, 0, 0, 0, "string", List.of("参数名-Parameter name"), "文本"),
-//                        new StringInput(0, 0, 0, 0, "string", List.of("参数名-Parameter name"), "文本")
-//                )),
-//                new Node.NodeCardNode("测试二维列表参数-Test parameter", List.of("参数描述-Parameter description"), Node.VarType.LIST, false, List.of(
-//                        Node.VarType.LIST, Node.VarType.INT
-//                ), List.of(
-//                        new ListSliderLong(0, 0, 0, 0, "list", List.of("参数名-Parameter name"), List.of(
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1)
-//                        ), Node.VarType.INT),
-//                        new ListSliderLong(0, 0, 0, 0, "list", List.of("参数名-Parameter name"), List.of(
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1)
-//                        ), Node.VarType.INT),
-//                        new ListSliderLong(0, 0, 0, 0, "list", List.of("参数名-Parameter name"), List.of(
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1)
-//                        ), Node.VarType.INT),
-//                        new ListSliderLong(0, 0, 0, 0, "list", List.of("参数名-Parameter name"), List.of(
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1),
-//                                new SliderInt(0, 0, 0, 0, 0, "int", List.of("参数描述-Parameter description"), false, false, 0, 0, 1)
-//                        ), Node.VarType.INT)
-//                ))
-//        ), Color.BLUE));
-
         this.addCard(InputNodes.MAIN.nodeCtr.createNew(100, 100, this.trueBase));
-//        this.addCard(InputNodes.PRINT.nodeCtr.createNew(100, 100, this.trueBase));
-//        this.addCard(InputNodes.PRINT.nodeCtr.createNew(100, 100, this.base));
-//        this.addCard(InputNodes.PRINT.nodeCtr.createNew(100, 100, this.base));
-//        this.addCard(InputNodes.LIST_GET.nodeCtr.createNew(100, 100, this.base));
-//        this.addCard(InputNodes.INT_TO_STRING.nodeCtr.createNew(100, 100, this.base));
-//        this.addCard(InputNodes.LIST_GET.nodeCtr.createNew(100, 100, this.base));
-//        this.addCard(InputNodes.LIST_GET.nodeCtr.createNew(100, 100, this.base));
+        this.addCard(InputNodes.RANDOM.nodeCtr.createNew(100, 100, this.trueBase));
+        this.addCard(InputNodes.RANDOM.nodeCtr.createNew(100, 100, this.trueBase));
+        this.addCard(InputNodes.RANDOM.nodeCtr.createNew(100, 100, this.trueBase));
+        this.addCard(InputNodes.ADD.nodeCtr.createNew(100, 100, this.trueBase));
+        this.addCard(InputNodes.LIST_GET.nodeCtr.createNew(100, 100, this.trueBase));
 
         this.base.getChildren().add(this.trueBase);
 
@@ -507,13 +376,13 @@ public class NodeEditor extends MinWindowType {
     public void addConnectingLine(ConnectingLine connectingLine) {
         connectingLine.resetColor(Node.EXECUTE_ORDER_COLOR, Node.EXECUTE_ORDER_COLOR);
         this.executeLine.add(connectingLine);
-        connectingLine.addTo(this.connectingLineGroup);
+        this.trueBase.getChildren().add(this.trueBase.getChildren().size() - 1, connectingLine.getBaseGroup(this.trueBase));
     }
 
     public void addConnectingDataLine(ConnectingLine connectingLine, Color startColor, Color endColor) {
         connectingLine.resetColor(startColor, endColor);
         this.dataLine.add(connectingLine);
-        connectingLine.addTo(this.connectingDataLineGroup);
+        this.trueBase.getChildren().add(this.trueBase.getChildren().size() - 1, connectingLine.getBaseGroup(this.trueBase));
     }
 
     public void removeConnectingLine(ConnectingLine connectingLine) {
@@ -568,24 +437,36 @@ public class NodeEditor extends MinWindowType {
             this.connectingLine.delete();
         }
         this.connectingLine = connectingLine;
-        this.connectingLine.addTo(this.trueBase);
+        if (!this.trueBase.getChildren().contains(connectingLine.getBaseGroup(this.trueBase)))
+            this.trueBase.getChildren().add(this.trueBase.getChildren().size() - 1, connectingLine.getBaseGroup(this.trueBase));
     }
 
     public void resetPos(float x, float y) {
         super.resetPosSuper(x, y);
-        this.runButton.resetPos(this.startX + this.getEditorNameWidth() + 30, this.startY + MinWindow.PADDING + 15.0);
-        this.nextButton.resetPos(this.startX + this.getEditorNameWidth() + 50, this.startY + MinWindow.PADDING + 15.0);
+        this.selectFileButton.resetPos(this.startX + this.getEditorNameWidth() + 30, this.startY + MinWindow.PADDING + 15.0);
+        this.openFileButton.resetPos(this.startX + this.getEditorNameWidth() + 205, this.startY + MinWindow.PADDING + 15.0);
+        this.saveFileButton.resetPos(this.startX + this.getEditorNameWidth() + 230, this.startY + MinWindow.PADDING + 15.0);
+        this.runButton.resetPos(this.startX + this.getEditorNameWidth() + 500, this.startY + MinWindow.PADDING + 15.0);
+        this.nextButton.resetPos(this.startX + this.getEditorNameWidth() + 525, this.startY + MinWindow.PADDING + 15.0);
     }
 
     public void resetSize(float width, float height) {
         super.resetSizeSuper(width, height);
-        this.runButton.resetPos(this.startX + this.getEditorNameWidth() + 30, this.startY + MinWindow.PADDING + 15.0);
-        this.nextButton.resetPos(this.startX + this.getEditorNameWidth() + 50, this.startY + MinWindow.PADDING + 15.0);
     }
 
     @Override
     public MinWindowTypeEnum getType() {
         return MinWindowTypeEnum.NodeEditorType;
+    }
+
+    // 从逻辑层面将卡片交换到最前面
+    public void swapCard(Node node) {
+        int index = this.nodes.indexOf(node);
+        NodeCtr nodeCtr = this.nodesCtr.get(index);
+        this.nodes.remove(node);
+        this.nodes.addFirst(node);
+        this.nodesCtr.remove(nodeCtr);
+        this.nodesCtr.addFirst(nodeCtr);
     }
 
     public void delete() {
@@ -598,12 +479,13 @@ public class NodeEditor extends MinWindowType {
         for (Node node : this.nodes) {
             node.delete();
         }
+        this.selectFileButton.delete();
+        this.openFileButton.delete();
+        this.saveFileButton.delete();
         this.runButton.delete();
         this.nextButton.delete();
         this.horizontalLines.clear();
         this.verticalLines.clear();
-        this.connectingLineGroup.getChildren().clear();
-        this.connectingDataLineGroup.getChildren().clear();
         this.background.removeEventHandler(MouseEvent.MOUSE_PRESSED, pressHandler);
         this.background.removeEventHandler(MouseEvent.MOUSE_DRAGGED, dragHandler);
         this.background.removeEventHandler(MouseEvent.MOUSE_RELEASED, releaseHandler);
@@ -624,6 +506,10 @@ public class NodeEditor extends MinWindowType {
         @Override
         protected Void call() {
             nc.runCard();
+            Platform.runLater(() -> {
+                if (nc.node.leftRunLine != null)
+                    nc.node.leftRunLine.bezierCurve.startSignalAnimation(NodeEditor.EXECUTE_LINE_COLOR, NodeEditor.EXECUTE_LINE_DURATION);
+            });
             Platform.runLater(nc::setRunningColorToNext);
             return null;
         }
@@ -663,6 +549,11 @@ public class NodeEditor extends MinWindowType {
                 Platform.runLater(() -> finalNc.node.backgroundBorder.setFill(Node.RUNNING_COLOR));
                 do {
                     nc.runCard();
+                    NodeCtr finalNc1 = nc;
+                    Platform.runLater(() -> {
+                        if (finalNc1.node.leftRunLine != null)
+                            finalNc1.node.leftRunLine.bezierCurve.startSignalAnimation(NodeEditor.EXECUTE_LINE_COLOR, NodeEditor.EXECUTE_LINE_DURATION);
+                    });
                     Platform.runLater(nc::setRunningColorToNext);
 
                     if (nc.node.nextNode == null) break;
@@ -693,6 +584,213 @@ public class NodeEditor extends MinWindowType {
             return null;
         }
 
+    }
+
+    public JSONArray serialize() {
+        JSONArray ret = new JSONArray();
+        for (NodeCtr nodeCtr : this.nodesCtr) {
+            JSONObject nodeCtrObject = new JSONObject();
+            nodeCtrObject.put("startX", nodeCtr.node.startX);
+            nodeCtrObject.put("startY", nodeCtr.node.startY);
+            nodeCtrObject.put("endX", nodeCtr.node.endX);
+            nodeCtrObject.put("endY", nodeCtr.node.endY);
+            nodeCtrObject.put("name", nodeCtr.node.name);
+            nodeCtrObject.put("last", nodeCtr.node.lastNode == null ? null : nodeCtr.node.lastNode.uuid.toString());
+            nodeCtrObject.put("next", nodeCtr.node.nextNode == null ? null : nodeCtr.node.nextNode.uuid.toString());
+            JSONArray leftDataList = new JSONArray();
+            for (Node.NodeCardNode leftCardNode : nodeCtr.node.leftCardNodes) {
+                if (leftCardNode.varType.equals(Node.VarType.SELF_ADAPTION_LIST)) {
+                    List<Object> leftData = new ArrayList<>();
+                    SelfAdaptionListSlider slider = (SelfAdaptionListSlider) leftCardNode.edit;
+                    for (BaseLabel sliderLong : slider.sliderLongs) {
+                        leftData.add(sliderLong.getData());
+                    }
+                    leftDataList.add(leftData);
+                } else {
+                    leftDataList.add(leftCardNode.edit.getData());
+                }
+            }
+            nodeCtrObject.put("leftData", leftDataList);
+            JSONArray rightDataList = new JSONArray();
+            for (Node.NodeCardNode rightCardNode : nodeCtr.node.rightCardNodes) {
+                rightDataList.add(rightCardNode.edit.getData());
+            }
+            nodeCtrObject.put("rightData", rightDataList);
+            JSONArray leftCardNodes = new JSONArray();
+            for (int i = 0; i < nodeCtr.node.leftDataPointList.size(); i++) {
+                Node.DataLinePoint dataLinePoint = nodeCtr.node.leftDataPointList.get(i);
+                if (nodeCtr.node.leftCardNodes.get(i).varType.equals(Node.VarType.SELF_ADAPTION_LIST)) {
+                    JSONArray jsonArray = getJsonArray(nodeCtr, i);
+                    leftCardNodes.add(jsonArray);
+                } else {
+                    if (dataLinePoint == null) {
+                        leftCardNodes.add(null);
+                        continue;
+                    }
+                    JSONObject dataLinePointJson = new JSONObject();
+                    dataLinePointJson.put("index", dataLinePoint.index);
+                    dataLinePointJson.put("node", dataLinePoint.nodeCtr.uuid);
+                    leftCardNodes.add(dataLinePointJson);
+                }
+            }
+            nodeCtrObject.put("leftCardNodes", leftCardNodes);
+            nodeCtrObject.put("uuid", nodeCtr.uuid.toString());
+            ret.add(nodeCtrObject);
+        }
+        return ret;
+    }
+
+    @NotNull
+    private static JSONArray getJsonArray(NodeCtr nodeCtr, int i) {
+        JSONArray jsonArray = new JSONArray();
+        SelfAdaptionListSlider slider = (SelfAdaptionListSlider) nodeCtr.node.leftCardNodes.get(i).edit;
+        for (int j = 0; j < slider.dataPointList.size(); j++) {
+            JSONObject dataLinePointJson = new JSONObject();
+            dataLinePointJson.put("index", slider.dataPointList.get(j).index);
+            dataLinePointJson.put("node", slider.dataPointList.get(j).nodeCtr.uuid);
+            jsonArray.add(dataLinePointJson);
+        }
+        return jsonArray;
+    }
+
+    public static List<NodeCtr> deserialize(JSONArray nodeCtrsJsonArray, Group root) throws ClassNotFoundException {
+        List<NodeCtr> ret = new ArrayList<>();
+        for (Object nodeCtrJsonObject : nodeCtrsJsonArray) {
+            JSONObject nodeCtrJson = (JSONObject) nodeCtrJsonObject;
+            String nodeName = nodeCtrJson.getString("name");
+            InputNodes inputNode = null;
+            for (InputNodes value : InputNodes.values()) {
+                if (value.nodeCtr.node.name.equals(nodeName)) {
+                    inputNode = value;
+                }
+            }
+            NodeCtr nodeCtr;
+            if (inputNode != null) {
+                nodeCtr = inputNode.nodeCtr.createNew(
+                        nodeCtrJson.getFloat("startX"),
+                        nodeCtrJson.getFloat("startY"),
+                        root
+                );
+            } else {
+                logger.error("发现未知的节点类型 - {}", nodeName);
+                return new ArrayList<>();
+            }
+            JSONArray leftDataList = nodeCtrJson.getJSONArray("leftData");
+            for (int i = 0; i < leftDataList.size(); i++) {
+                if (nodeCtr.node.leftCardNodes.get(i).varType.equals(Node.VarType.SELF_ADAPTION_LIST)) {
+                    if (!leftDataList.getJSONArray(i).isEmpty()) {
+                        SelfAdaptionListSlider slider = (SelfAdaptionListSlider) nodeCtr.node.leftCardNodes.get(i).edit;
+                        BaseLabel label = slider.sliderLongs.getFirst();
+                        slider.sliderLongs.clear();
+                        slider.sliderLongs.add(label);
+                        for (int j = 0; j < leftDataList.getJSONArray(i).size(); j++) {
+                            try {
+                                slider.addSliderLong();
+                                slider.sliderLongs.get(j).setData(leftDataList.getJSONArray(i).get(j));
+                            } catch (ClassCastException e) {
+                                logger.warn("忽略一个不可转换的类型 - L(S)");
+                            }
+                        }
+                    }
+                } else {
+                    try {
+                        nodeCtr.node.leftCardNodes.get(i).edit.setData(leftDataList.get(i));
+                    } catch (ClassCastException e) {
+                        logger.warn("忽略一个不可转换的类型 - L");
+                    }
+                }
+            }
+            JSONArray rightDataList = nodeCtrJson.getJSONArray("rightData");
+            for (int i = 0; i < rightDataList.size(); i++) {
+                try {
+                    nodeCtr.node.rightCardNodes.get(i).edit.setData(rightDataList.get(i));
+                } catch (ClassCastException e) {
+                    logger.warn("忽略一个不可转换的类型 - R");
+                }
+            }
+            nodeCtr.uuid = UUID.fromString(nodeCtrJson.getString("uuid"));
+            nodeCtr.node.uuid = nodeCtr.uuid;
+            ret.add(nodeCtr);
+        }
+        Map<String, NodeCtr> r = new HashMap<>();
+        for (NodeCtr nodeCtr : ret) {
+            r.put(nodeCtr.uuid.toString(), nodeCtr);
+        }
+        for (int i = 0; i < ret.size(); i++) {
+            NodeCtr nodeCtr = ret.get(i);
+            if (((JSONObject) nodeCtrsJsonArray.get(i)).getString("last") != null) {
+                nodeCtr.node.lastNode = r.get(((JSONObject) nodeCtrsJsonArray.get(i)).getString("last")).node;
+                ConnectingLine connectingLine = new ConnectingLine(
+                        r.get(((JSONObject) nodeCtrsJsonArray.get(i)).getString("last")).node.endX - 15,
+                        r.get(((JSONObject) nodeCtrsJsonArray.get(i)).getString("last")).node.startY + 15,
+                        nodeCtr.node.startX + 10,
+                        nodeCtr.node.startY + 15,
+                        Node.EXECUTE_ORDER_COLOR,
+                        Node.EXECUTE_ORDER_COLOR
+                );
+                nodeCtr.node.leftRunLine = connectingLine;
+                r.get(((JSONObject) nodeCtrsJsonArray.get(i)).getString("last")).node.rightRunLine = connectingLine;
+                connectingLine.addTo(root);
+            } else {
+                nodeCtr.node.lastNode = null;
+            }
+            if (((JSONObject) nodeCtrsJsonArray.get(i)).getString("next") != null) {
+                nodeCtr.node.nextNode = r.get(((JSONObject) nodeCtrsJsonArray.get(i)).getString("next")).node;
+            } else {
+                nodeCtr.node.nextNode = null;
+            }
+            JSONArray dataLineArray = ((JSONObject) nodeCtrsJsonArray.get(i)).getJSONArray("leftCardNodes");
+            for (int j = 0; j < dataLineArray.size(); j++) {
+                if (nodeCtr.node.leftCardNodes.get(j).varType.equals(Node.VarType.SELF_ADAPTION_LIST)) {
+                    SelfAdaptionListSlider slider = (SelfAdaptionListSlider) nodeCtr.node.leftCardNodes.get(j).edit;
+                    JSONArray dataPointLines = dataLineArray.getJSONArray(j);
+                    for (int k = 0; k < dataPointLines.size(); k++) {
+                        slider.dataPointList.set(k, new Node.DataLinePoint(
+                                r.get(dataPointLines.getJSONObject(k).getString("node")),
+                                dataPointLines.getJSONObject(k).getIntValue("index")
+                        ));
+                        ConnectingLine connectingLine = new ConnectingLine(
+                                0,
+                                0,
+                                0,
+                                0,
+                                ((Color) ((Shape) r.get(dataPointLines.getJSONObject(k).getString("node")).node.rightCardNodes.get(dataPointLines.getJSONObject(k).getIntValue("index")).point.getChildren().getFirst()).getFill()),
+                                ((Color) ((Shape) nodeCtr.node.leftCardNodes.get(j).point.getChildren().getFirst()).getFill())
+                        );
+                        r.get(dataPointLines.getJSONObject(k).getString("node")).node.rightDataLines.get(dataPointLines.getJSONObject(k).getIntValue("index")).add(connectingLine);
+                        slider.dataLines.set(k, connectingLine);
+                        connectingLine.addTo(root);
+                        nodeCtr.node.leftCardNodes.get(j).edit.setVisible(false);
+                    }
+                    ((Rectangle) nodeCtr.node.leftCardNodes.get(j).point.getChildren().getFirst()).setHeight(14 + (((slider).dataLines.size()) - 1) * 10);
+                } else {
+                    if (dataLineArray.get(j) == null) {
+                        nodeCtr.node.leftDataPointList.set(j, null);
+                        continue;
+                    }
+                    JSONObject dataPointJsonObject = dataLineArray.getJSONObject(j);
+                    Node.DataLinePoint dataLinePoint = new Node.DataLinePoint(
+                            r.get(dataPointJsonObject.getString("node")),
+                            dataPointJsonObject.getIntValue("index", 0)
+                    );
+                    nodeCtr.node.leftDataPointList.set(j, dataLinePoint);
+                    Node right = r.get(dataPointJsonObject.getString("node")).node;
+                    ConnectingLine connectingLine = new ConnectingLine(
+                            0,
+                            0,
+                            0,
+                            0,
+                            ((Color) ((Shape) right.rightCardNodes.get(dataPointJsonObject.getIntValue("index")).point.getChildren().getFirst()).getFill()),
+                            ((Color) ((Shape) nodeCtr.node.leftCardNodes.get(j).point.getChildren().getFirst()).getFill())
+                    );
+                    right.rightDataLines.get(dataPointJsonObject.getIntValue("index")).add(connectingLine);
+                    nodeCtr.node.leftDataLines.set(j, connectingLine);
+                    connectingLine.addTo(root);
+                    nodeCtr.node.leftCardNodes.get(j).edit.setVisible(false);
+                }
+            }
+        }
+        return ret;
     }
 
 }

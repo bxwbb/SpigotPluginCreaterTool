@@ -81,9 +81,9 @@ public class TextButton extends BaseLabel {
         this.startX = x;
         this.startY = y;
         this.background.setX(startX);
-        this.background.setY(startY - 10);
+        this.background.setY(startY - (endY - startY) * 0.5);
         this.image.setX(startX + 1);
-        this.image.setY(startY + 1 - 10);
+        this.image.setY(startY + 1 - (endY - startY) * 0.5);
         this.textLabel.setX(startX + endY - startY - 2 + 5);
         this.textLabel.setY(startY + this.textLabel.getLayoutBounds().getHeight() * 0.5 - 3);
         this.baseGroup.setClip(this.getMask());

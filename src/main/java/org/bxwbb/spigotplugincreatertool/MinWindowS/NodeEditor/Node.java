@@ -15,49 +15,52 @@ import org.bxwbb.spigotplugincreatertool.windowLabel.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 
 @SuppressWarnings("ALL")
 public class Node {
 
     // 节点卡片背景色
-    public static Color CARD_BG_COLOR = Color.color(0.1, 0.1, 0.1);
+    transient public static Color CARD_BG_COLOR = Color.color(0.1, 0.1, 0.1);
     // 节点卡片顶部颜色
-    public static Color CARD_TOP_COLOR = Color.color(0.1, 0.1, 0.1);
+    transient public static Color CARD_TOP_COLOR = Color.color(0.1, 0.1, 0.1);
     // 节点卡片边框颜色
-    public static Color CARD_BORDER_COLOR = Color.BLACK;
+    transient public static Color CARD_BORDER_COLOR = Color.BLACK;
     // 节点卡片边框宽度
-    public static float CARD_BORDER_WIDTH = 1.5f;
+    transient public static float CARD_BORDER_WIDTH = 1.5f;
     // 卡片阴影效果半径
-    public static float CARD_SHADOW_RADIUS = 30.0f;
+    transient public static float CARD_SHADOW_RADIUS = 30.0f;
     // 执行顺序连接节点颜色
-    public static Color EXECUTE_ORDER_COLOR = Color.rgb(118, 255, 3);
+    transient public static Color EXECUTE_ORDER_COLOR = Color.rgb(118, 255, 3);
     // 运行时颜色(偏绿)
-    public static Color RUNNING_COLOR = Color.rgb(118, 255, 118);
+    transient public static Color RUNNING_COLOR = Color.rgb(118, 255, 118);
 
     public double startX;
     public double startY;
     public double endX;
     public double endY;
-    public Group root;
-    public Group base;
-    public Group nodeGroup;
+    public UUID uuid = UUID.randomUUID();
+    transient public Group root;
+    transient public Group base;
+    transient public Group nodeGroup;
     public String name;
-    public Text title;
-    public Text hideTitle;
+    transient public Text title;
+    transient public Text hideTitle;
     public List<String> lore;
-    public Group leftGroup;
-    public Group rightGroup;
-    public Rectangle leftMask;
-    public Rectangle rightMask;
+    transient public Group leftGroup;
+    transient public Group rightGroup;
+    transient public Rectangle leftMask;
+    transient public Rectangle rightMask;
     public List<NodeCardNode> leftCardNodes;
     public List<NodeCardNode> rightCardNodes;
-    public Rectangle background;
-    public Rectangle backgroundBorder;
-    public Line topBar;
-    public DropShadow cardDropShadow;
-    public Polygon leftRunLineInput;
-    public Polygon rightRunLineOutput;
-    public Color topBarColor;
+    transient public Rectangle background;
+    transient public Rectangle backgroundBorder;
+    transient public Line topBar;
+    transient public DropShadow cardDropShadow;
+    transient public Polygon leftRunLineInput;
+    transient public Polygon rightRunLineOutput;
+    transient public Color topBarColor;
     // 左顺序节点连接线
     public ConnectingLine leftRunLine;
     // 右顺序节点连接线
@@ -104,8 +107,72 @@ public class Node {
                 int finalI = i;
                 int finalI1 = i;
                 shape.setOnMousePressed(event -> {
-                    this.addDataLine((Color) ((Circle) this.leftCardNodes.get(finalI).point.getChildren().getFirst()).getFill(), this.leftCardNodes.get(finalI1).point.getChildren().getFirst().getLayoutX(), this.leftCardNodes.get(finalI1).point.getChildren().getFirst().getLayoutY(), true, this.leftCardNodes.get(finalI));
+                    if (!this.leftCardNodes.get(finalI).edit.getVarType().equals(VarType.SELF_ADAPTION_LIST)) {
+                        if (this.leftDataPointList.get(finalI) == null) {
+                            if (this.leftCardNodes.get(finalI).point.getChildren().getFirst() instanceof Circle) {
+                                this.addDataLine((Color) ((Shape) this.leftCardNodes.get(finalI).point.getChildren().getFirst()).getFill(), this.leftCardNodes.get(finalI1).point.getChildren().getFirst().getLayoutX(), this.leftCardNodes.get(finalI1).point.getChildren().getFirst().getLayoutY(), true, this.leftCardNodes.get(finalI));
+                            } else {
+                                this.addDataLine((Color) ((Shape) this.leftCardNodes.get(finalI).point.getChildren().getFirst()).getFill(), this.leftCardNodes.get(finalI1).point.getChildren().getFirst().getLayoutX() + 7, this.leftCardNodes.get(finalI1).point.getChildren().getFirst().getLayoutY() + 7, true, this.leftCardNodes.get(finalI));
+                            }
+                        } else {
+                            this.addDataLine(false, this.leftDataPointList.get(finalI).nodeCtr.node.rightCardNodes.get(this.leftDataPointList.get(finalI).index), this.leftDataLines.get(finalI));
+                            ((NodeEditor) HelloApplication.cancelWindow.minWindowType).focusNode = this.leftDataPointList.get(finalI).nodeCtr.node;
+                            this.leftDataPointList.set(finalI, null);
+                            this.leftDataLines.set(finalI, null);
+                            this.leftCardNodes.get(finalI).edit.setVisible(true);
+                        }
+                    } else {
+                        SelfAdaptionListSlider slider = (SelfAdaptionListSlider) this.leftCardNodes.get(finalI).edit;
+                        if (!slider.dataPointList.isEmpty()) {
+                            Rectangle rect = (Rectangle) this.leftCardNodes.get(finalI).point.getChildren().getFirst();
+                            int index = ((int) ((event.getY() - (rect.getY() + 7)) / 10));
+                            this.addDataLine(false, slider.dataPointList.get(index).nodeCtr.node.rightCardNodes.get(slider.dataPointList.get(index).index), slider.dataLines.get(index));
+                            ((NodeEditor) HelloApplication.cancelWindow.minWindowType).focusNode = slider.dataPointList.get(index).nodeCtr.node;
+                            if (slider.dataPointList.size() == 1) {
+                                slider.dataPointList.remove(index);
+                                slider.dataLines.remove(index);
+                                slider.sliderLongs.get(index).delete();
+                            } else {
+                                slider.dataPointList.remove(index);
+                                slider.dataLines.remove(index);
+                                slider.sliderLongs.get(index).delete();
+                                slider.sliderLongs.remove(index);
+                            }
+                            for (int j = 0; j < slider.sliderLongs.size(); j++) {
+                                slider.sliderLongs.get(j).setName(slider.name + "[" + j + "]");
+                            }
+                            slider.update();
+                        }
+                    }
+                    this.addTo();
                 });
+                if (this.leftCardNodes.get(i).varType.equals(VarType.SELF_ADAPTION_LIST)) {
+                    SelfAdaptionListSlider slider = (SelfAdaptionListSlider) this.leftCardNodes.get(i).edit;
+                    Rectangle rect = (Rectangle) this.leftCardNodes.get(i).point.getChildren().getFirst();
+                    int finalI2 = i;
+                    rect.setOnMouseMoved(event -> {
+                        int index = ((int) ((event.getY() - (rect.getY() + 7)) / 10));
+                        for (int i1 = 0; i1 < slider.dataLines.size(); i1++) {
+                            if (i1 == index) {
+                                slider.dataLines.get(i1).focusMode(false);
+                            } else {
+                                slider.dataLines.get(i1).cancelFocusMode();
+                            }
+                        }
+                    });
+                    rect.setOnMouseExited(event -> {
+                        for (int i1 = 0; i1 < slider.dataLines.size(); i1++) {
+                            slider.dataLines.get(i1).cancelFocusMode();
+                        }
+                    });
+                } else {
+                    shape.setOnMouseEntered(event -> {
+                        if (this.leftDataLines.get(finalI1) != null) this.leftDataLines.get(finalI1).focusMode(false);
+                    });
+                    shape.setOnMouseExited(event -> {
+                        if (this.leftDataLines.get(finalI1) != null) this.leftDataLines.get(finalI1).cancelFocusMode();
+                    });
+                }
             }
             this.leftDataLines.add(null);
             this.leftDataPointList.add(null);
@@ -125,7 +192,20 @@ public class Node {
                 int finalI = i;
                 int finalI1 = i;
                 shape.setOnMousePressed(event -> {
-                    this.addDataLine((Color) ((Circle) this.rightCardNodes.get(finalI).point.getChildren().getFirst()).getFill(), this.rightCardNodes.get(finalI1).point.getChildren().getFirst().getLayoutX(), this.rightCardNodes.get(finalI1).point.getChildren().getFirst().getLayoutY(), false, this.rightCardNodes.get(finalI));
+                    if (this.rightCardNodes.get(finalI).point.getChildren().getFirst() instanceof Circle) {
+                        this.addDataLine((Color) ((Shape) this.rightCardNodes.get(finalI).point.getChildren().getFirst()).getFill(), this.rightCardNodes.get(finalI1).point.getChildren().getFirst().getLayoutX(), this.rightCardNodes.get(finalI1).point.getChildren().getFirst().getLayoutY(), false, this.rightCardNodes.get(finalI));
+                    } else {
+                        this.addDataLine((Color) ((Shape) this.rightCardNodes.get(finalI).point.getChildren().getFirst()).getFill(), this.rightCardNodes.get(finalI1).point.getChildren().getFirst().getLayoutX() + 7, this.rightCardNodes.get(finalI1).point.getChildren().getFirst().getLayoutY() + 7, false, this.rightCardNodes.get(finalI));
+                    }
+                    this.addTo();
+                });
+                shape.setOnMouseEntered(event -> {
+                    if (this.rightDataLines.get(finalI1) != null)
+                        this.rightDataLines.get(finalI1).forEach(cl -> cl.focusMode(true));
+                });
+                shape.setOnMouseExited(event -> {
+                    if (this.rightDataLines.get(finalI1) != null)
+                        this.rightDataLines.get(finalI1).forEach(cl -> cl.cancelFocusMode());
                 });
             }
             this.rightDataLines.add(new ArrayList<>());
@@ -155,23 +235,27 @@ public class Node {
         this.background.setStrokeWidth(0.0f);
         this.background.setStroke(CARD_BORDER_COLOR);
         this.background.setOnMouseMoved(event -> {
-            if (Math.abs(event.getX() - this.startX) <= MinWindow.TEST_PADDING && event.getY() <= (this.endY - MinWindow.TEST_PADDING)) {
-                this.background.setCursor(Cursor.H_RESIZE);
-            } else if (Math.abs(event.getX() - this.endX) <= MinWindow.TEST_PADDING && event.getY() <= (this.endY - MinWindow.TEST_PADDING)) {
-                this.background.setCursor(Cursor.H_RESIZE);
-            } else {
-                this.background.setCursor(Cursor.DEFAULT);
+            if (!HelloApplication.isConnectingLine) {
+                if (Math.abs(event.getX() - this.startX) <= MinWindow.TEST_PADDING && event.getY() <= (this.endY - MinWindow.TEST_PADDING)) {
+                    this.background.setCursor(Cursor.H_RESIZE);
+                } else if (Math.abs(event.getX() - this.endX) <= MinWindow.TEST_PADDING && event.getY() <= (this.endY - MinWindow.TEST_PADDING)) {
+                    this.background.setCursor(Cursor.H_RESIZE);
+                } else {
+                    this.background.setCursor(Cursor.DEFAULT);
+                }
             }
         });
         this.background.setOnMouseDragged(event -> {
-            if (Math.abs(event.getX() - this.startX) <= MinWindow.TEST_PADDING && event.getY() <= (this.endY - MinWindow.TEST_PADDING)) {
-                if (this.endX - event.getX() > 60) {
-                    this.background.setCursor(Cursor.H_RESIZE);
-                    this.resetSize((float) (this.endX - event.getX()), (float) (this.endY - this.startY));
-                    this.resetPos((float) event.getX(), (float) this.startY);
+            if (!HelloApplication.isConnectingLine) {
+                if (Math.abs(event.getX() - this.startX) <= MinWindow.TEST_PADDING && event.getY() <= (this.endY - MinWindow.TEST_PADDING)) {
+                    if (this.endX - event.getX() > 60) {
+                        this.background.setCursor(Cursor.H_RESIZE);
+                        this.resetSize((float) (this.endX - event.getX()), (float) (this.endY - this.startY));
+                        this.resetPos((float) event.getX(), (float) this.startY);
+                    }
+                } else if (Math.abs(event.getX() - this.endX) <= MinWindow.TEST_PADDING && event.getY() <= (this.endY - MinWindow.TEST_PADDING)) {
+                    this.resetSize(Math.max(60, (float) (event.getX() - this.startX)), (float) (this.endY - this.startY));
                 }
-            } else if (Math.abs(event.getX() - this.endX) <= MinWindow.TEST_PADDING && event.getY() <= (this.endY - MinWindow.TEST_PADDING)) {
-                this.resetSize(Math.max(60, (float) (event.getX() - this.startX)), (float) (this.endY - this.startY));
             }
         });
         this.topBar = new Line(startX, startY, endX, startY);
@@ -179,17 +263,48 @@ public class Node {
         this.topBarColor = topBarColor;
         this.topBar.setStroke(this.topBarColor);
         this.topBar.setOnMousePressed(event -> {
-            if (event.isPrimaryButtonDown()) {
-                this.rMouseX = event.getX();
-                this.rMouseY = event.getY();
+            if (!HelloApplication.isConnectingLine) {
+                if (event.isPrimaryButtonDown()) {
+                    this.rMouseX = event.getX();
+                    this.rMouseY = event.getY();
+                    if (this.leftDataLines != null) {
+                        for (ConnectingLine leftDataLine : this.leftDataLines) {
+                            if (leftDataLine == null) continue;
+                            this.root.getChildren().remove(leftDataLine.getBaseGroup(this.root));
+                            this.root.getChildren().add(leftDataLine.getBaseGroup(this.root));
+                        }
+                        for (DataLinePoint dataLinePoint : this.leftDataPointList) {
+                            if (dataLinePoint == null) continue;
+                            dataLinePoint.nodeCtr.node.addTo();
+                        }
+                    }
+                    for (NodeCardNode leftCardNode : this.leftCardNodes) {
+                        if (leftCardNode.varType.equals(Node.VarType.SELF_ADAPTION_LIST)) {
+                            List<ConnectingLine> dataLines = ((SelfAdaptionListSlider) leftCardNode.edit).dataLines;
+                            for (ConnectingLine dataLine : dataLines) {
+                                if (dataLine == null) continue;
+                                this.root.getChildren().remove(dataLine.getBaseGroup(this.root));
+                                this.root.getChildren().add(dataLine.getBaseGroup(this.root));
+                            }
+                            List<DataLinePoint> dataPointList = ((SelfAdaptionListSlider) leftCardNode.edit).dataPointList;
+                            for (DataLinePoint dataLinePoint : dataPointList) {
+                                if (dataLinePoint == null) continue;
+                                dataLinePoint.nodeCtr.node.addTo();
+                            }
+                        }
+                    }
+                    this.addTo();
+                }
             }
         });
         this.topBar.setOnMouseDragged(event -> {
-            if (event.isPrimaryButtonDown()) {
-                this.topBar.setCursor(Cursor.MOVE);
-                this.resetPos((float) (this.startX + (event.getX() - this.rMouseX)), (float) (this.startY + (event.getY() - this.rMouseY)));
-                this.rMouseX = event.getX();
-                this.rMouseY = event.getY();
+            if (!HelloApplication.isConnectingLine) {
+                if (event.isPrimaryButtonDown()) {
+                    this.topBar.setCursor(Cursor.MOVE);
+                    this.resetPos((float) (this.startX + (event.getX() - this.rMouseX)), (float) (this.startY + (event.getY() - this.rMouseY)));
+                    this.rMouseX = event.getX();
+                    this.rMouseY = event.getY();
+                }
             }
         });
         this.topBar.setOnMouseReleased(event -> this.topBar.setCursor(Cursor.DEFAULT));
@@ -215,6 +330,33 @@ public class Node {
                             this.EXECUTE_ORDER_COLOR
                     ));
                 }
+                if (this.leftDataLines != null) {
+                    for (ConnectingLine leftDataLine : this.leftDataLines) {
+                        if (leftDataLine == null) continue;
+                        this.root.getChildren().remove(leftDataLine.getBaseGroup(this.root));
+                        this.root.getChildren().add(leftDataLine.getBaseGroup(this.root));
+                    }
+                    for (DataLinePoint dataLinePoint : this.leftDataPointList) {
+                        if (dataLinePoint == null) continue;
+                        dataLinePoint.nodeCtr.node.addTo();
+                    }
+                }
+                for (NodeCardNode leftCardNode : this.leftCardNodes) {
+                    if (leftCardNode.varType.equals(Node.VarType.SELF_ADAPTION_LIST)) {
+                        List<ConnectingLine> dataLines = ((SelfAdaptionListSlider) leftCardNode.edit).dataLines;
+                        for (ConnectingLine dataLine : dataLines) {
+                            if (dataLine == null) continue;
+                            this.root.getChildren().remove(dataLine.getBaseGroup(this.root));
+                            this.root.getChildren().add(dataLine.getBaseGroup(this.root));
+                        }
+                        List<DataLinePoint> dataPointList = ((SelfAdaptionListSlider) leftCardNode.edit).dataPointList;
+                        for (DataLinePoint dataLinePoint : dataPointList) {
+                            if (dataLinePoint == null) continue;
+                            dataLinePoint.nodeCtr.node.addTo();
+                        }
+                    }
+                }
+                this.addTo();
             }
         });
         if (!this.leftRunLineB) {
@@ -242,6 +384,33 @@ public class Node {
                             HelloApplication.HOVER_COLOR
                     ));
                 }
+                if (this.leftDataLines != null) {
+                    for (ConnectingLine leftDataLine : this.leftDataLines) {
+                        if (leftDataLine == null) continue;
+                        this.root.getChildren().remove(leftDataLine.getBaseGroup(this.root));
+                        this.root.getChildren().add(leftDataLine.getBaseGroup(this.root));
+                    }
+                    for (DataLinePoint dataLinePoint : this.leftDataPointList) {
+                        if (dataLinePoint == null) continue;
+                        dataLinePoint.nodeCtr.node.addTo();
+                    }
+                }
+                for (NodeCardNode leftCardNode : this.leftCardNodes) {
+                    if (leftCardNode.varType.equals(Node.VarType.SELF_ADAPTION_LIST)) {
+                        List<ConnectingLine> dataLines = ((SelfAdaptionListSlider) leftCardNode.edit).dataLines;
+                        for (ConnectingLine dataLine : dataLines) {
+                            if (dataLine == null) continue;
+                            this.root.getChildren().remove(dataLine.getBaseGroup(this.root));
+                            this.root.getChildren().add(dataLine.getBaseGroup(this.root));
+                        }
+                        List<DataLinePoint> dataPointList = ((SelfAdaptionListSlider) leftCardNode.edit).dataPointList;
+                        for (DataLinePoint dataLinePoint : dataPointList) {
+                            if (dataLinePoint == null) continue;
+                            dataLinePoint.nodeCtr.node.addTo();
+                        }
+                    }
+                }
+                this.addTo();
             }
         });
         if (!this.rightRunLineB) {
@@ -309,6 +478,30 @@ public class Node {
         this.rightGroup.getChildren().clear();
         this.nodeGroup.getChildren().clear();
         this.root.getChildren().remove(this.nodeGroup);
+    }
+
+    public void addTo() {
+//        for (int i = 0; i < this.leftCardNodes.size(); i++) {
+//            this.leftCardNodes.get(i).addTo(leftGroup);
+//        }
+//        for (int i = 0; i < this.rightCardNodes.size(); i++) {
+//            this.rightCardNodes.get(i).addTo(rightGroup);
+//        }
+//        this.nodeGroup.getChildren().add(this.backgroundBorder);
+//        this.base.getChildren().add(this.background);
+//        this.base.getChildren().add(this.topBar);
+//        this.base.getChildren().add(this.leftRunLineInput);
+//        this.base.getChildren().add(this.rightRunLineOutput);
+//        this.base.getChildren().add(this.hideTitle);
+//        this.base.getChildren().add(this.title);
+//        this.nodeGroup.getChildren().add(this.base);
+//        this.nodeGroup.getChildren().add(this.rightGroup);
+//        this.nodeGroup.getChildren().add(this.leftGroup);
+        NodeEditor nodeEditor = (NodeEditor) HelloApplication.cancelWindow.minWindowType;
+        nodeEditor.swapCard(this);
+        this.root.getChildren().remove(this.nodeGroup);
+        this.root.getChildren().add(this.nodeGroup);
+        this.resetPos((float) this.startX, (float) this.startY);
     }
 
     public void resetPos(float x, float y) {
@@ -442,11 +635,11 @@ public class Node {
 
     public static class NodeCardNode {
 
-        public Group point;
+        transient public Group point;
         public BaseLabel edit;
         public String name;
         public List<String> lore;
-        public Group root;
+        transient public Group root;
         public boolean rightText;
         public VarType varType;
 
@@ -489,13 +682,13 @@ public class Node {
         public NodeCardNode createNew() throws ClassNotFoundException {
             Object d = this.data;
             List<BaseLabel> bl = new ArrayList<>();
-            if (this.varType.equals(VarType.LIST)) {
+            if (this.varType.equals(VarType.LIST) || this.varType.equals(VarType.SELF_ADAPTION_LIST)) {
                 List<BaseLabel> r = (List<BaseLabel>) d;
                 for (BaseLabel baseLabel : r) {
                     bl.add(baseLabel.createNew());
                 }
             }
-            return new NodeCardNode(this.name, this.lore, this.varType, this.rightText, this.args, this.varType.equals(VarType.LIST) ? bl : d, this.classInfo);
+            return new NodeCardNode(this.name, this.lore, this.varType, this.rightText, this.args, this.varType.equals(VarType.LIST) || this.varType.equals(VarType.SELF_ADAPTION_LIST) ? bl : d, this.classInfo);
         }
 
         public void addTo(Group root) {
@@ -542,7 +735,7 @@ public class Node {
         switch (varType) {
             case BYTE, SHORT, INT, LONG, FLOAT, DOUBLE, BOOLEAN, CHAR, OBJECT, __DEFAULT__, STRING:
                 return 25;
-            case LIST:
+            case LIST, SELF_ADAPTION_LIST:
                 return ListSlider.LIST_LABLE_HEIGHT + 15;
             default:
                 return 0;
@@ -553,7 +746,7 @@ public class Node {
         return switch (varType) {
             case BYTE, SHORT, INT, LONG, FLOAT, DOUBLE, BOOLEAN, CHAR, OBJECT, __DEFAULT__, STRING:
                 yield 14;
-            case LIST:
+            case LIST, SELF_ADAPTION_LIST:
                 yield ListSlider.LIST_LABLE_HEIGHT;
             default:
                 yield 0;
@@ -572,7 +765,8 @@ public class Node {
         STRING,
         LIST,
         OBJECT,
-        __DEFAULT__;
+        __DEFAULT__,
+        SELF_ADAPTION_LIST;
 
         public Group getShape1(List<VarType> args) {
             return this.getShape1(args, null);
@@ -660,6 +854,20 @@ public class Node {
                     shape.setStrokeWidth(1.5f);
                     shape.setStroke(CARD_BORDER_COLOR);
                     break;
+                case SELF_ADAPTION_LIST:
+                    argCopy = new ArrayList<>(args);
+                    rVarType = argCopy.getFirst();
+                    argCopy.removeFirst();
+                    group = rVarType.getShape1(argCopy);
+                    shape2 = new Rectangle(0.0, 0.0, 12.0, 22.0);
+                    ((Rectangle) shape2).setArcWidth(HelloApplication.ROUNDNESS);
+                    ((Rectangle) shape2).setArcHeight(HelloApplication.ROUNDNESS);
+                    ((Rectangle) shape2).setStrokeWidth(1.5f);
+                    ((Rectangle) shape2).setStroke(CARD_BORDER_COLOR);
+                    shape2.setFill(((Shape) group.getChildren().getFirst()).getFill());
+                    group = new Group();
+                    group.getChildren().add(shape2);
+                    break;
             }
             if (!group.getChildren().contains(shape) && shape != null) group.getChildren().add(shape);
             return group;
@@ -695,6 +903,8 @@ public class Node {
                         new ObjectInput(0, 0, 10, 10, data, "对象型-Object", List.of("参数描述-Parameter description"));
                 case __DEFAULT__ ->
                         new DefaultObjectInput(0, 0, 10, 10, data, "未定义型-Default", List.of("参数描述-Parameter description"), classInfo);
+                case SELF_ADAPTION_LIST ->
+                        new SelfAdaptionListSlider(0, 0, 10, 10, "长整型列表-Long List", List.of("参数描述-Parameter description"), (List<BaseLabel>) data, VarType.LONG);
             };
             baseLabel.setVisible(rightText);
             if (!rightText) {
@@ -725,6 +935,24 @@ public class Node {
         }
     }
 
+    public void addDataLine(boolean input, NodeCardNode ncn, ConnectingLine connectingLine) {
+        if (HelloApplication.cancelWindow.minWindowType.getType().equals(MinWindowType.MinWindowTypeEnum.NodeEditorType)) {
+            NodeEditor nodeEditor = (NodeEditor) HelloApplication.cancelWindow.minWindowType;
+            connectingLine.resetColor(
+                    !input ? connectingLine.lineStartColor : HelloApplication.HOVER_COLOR,
+                    input ? connectingLine.lineStartColor : HelloApplication.HOVER_COLOR
+            );
+            if (!nodeEditor.userConnectingLine) {
+                nodeEditor.userConnectingLine = true;
+                nodeEditor.focusNode = this;
+                HelloApplication.isConnectingData = true;
+                HelloApplication.isConnectingDataInput = input;
+                nodeEditor.setConnectingLine(connectingLine);
+                nodeEditor.focusCardNode = ncn;
+            }
+        }
+    }
+
     public static class DataLinePoint {
         public NodeCtr nodeCtr;
         public int index;
@@ -735,9 +963,25 @@ public class Node {
         }
 
         public Object getData() {
-            return nodeCtr.getOutput(this.index);
+            return nodeCtr.outputs.get(this.index);
+//            return nodeCtr.getOutput(this.index);
         }
 
+        public void update() {
+            CountDownLatch latch = new CountDownLatch(1);
+            try {
+                this.nodeCtr.runCard();
+            } finally {
+                latch.countDown();
+            }
+
+            try {
+                latch.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
     }
 
 }
