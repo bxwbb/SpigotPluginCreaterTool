@@ -23,4 +23,5 @@ module org.bxwbb.spigotplugincreatertool {
     opens org.bxwbb.spigotplugincreatertool.windowLabel;
     opens org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor;
     exports org.bxwbb.spigotplugincreatertool;
+    opens org.bxwbb.spigotplugincreatertool.windowLabel.CodeFramework;
 }
