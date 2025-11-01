@@ -8,7 +8,6 @@ import javafx.scene.text.TextFlow;
 import org.bxwbb.spigotplugincreatertool.HelloApplication;
 import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.Node;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -69,7 +68,7 @@ public class CodeFramework extends BaseLabel {
                 Text text = new Text(i + "\n");
                 text.setLayoutX(this.startX);
                 text.setY(this.startY + i * (text.getLayoutBounds().getHeight() + this.lineOffset));
-                text.setFill(HelloApplication.UNSELECTED_FONT_COLOR);
+//                text.setFill(HelloApplication.UNSELECTED_FONT_COLOR);
                 text.setFont(codeFont);
                 this.lineTextFlow.getChildren().add(text);
             }
