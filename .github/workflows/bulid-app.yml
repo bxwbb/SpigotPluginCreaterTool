@@ -29,33 +29,35 @@ jobs:
 
       - name: 生成Windows 64位 EXE程序
         run: |
-          # 1. 基础变量（改用正斜杠/，彻底避免PowerShell反斜杠转义问题）
-          $JAR_FILE_NAME = "SpigotPluginCreaterTool.jar"  # 与pom.xml生成的Jar名一致
-          $APP_JAR_PATH = "./target/$JAR_FILE_NAME"       # 正斜杠路径（PowerShell兼容）
+          # 1. 基础变量（保留正斜杠，后续转换为绝对路径）
+          $JAR_FILE_NAME = "SpigotPluginCreaterTool.jar"
+          $APP_JAR_PATH = "./target/$JAR_FILE_NAME"
           $APP_NAME = "我的世界spigot插件图形化开发工具"
           $MAIN_CLASS = "org.bxwbb.spigotplugincreatertool.HelloApplication"
-          $OUTPUT_DIR = "./target/exe-win64"              # 正斜杠路径（与上传步骤匹配）
+          $OUTPUT_DIR_RELATIVE = "./target/exe-win64"  # 相对路径
 
-          # 2. 调试验证：确认Jar包存在且路径正确
+          # 关键：转换为绝对路径，避免相对路径解析歧义
+          $OUTPUT_DIR = (Resolve-Path -Path $OUTPUT_DIR_RELATIVE -ErrorAction Stop).Path
+          Write-Host "转换后的绝对输出路径：$OUTPUT_DIR"
+
+          # 2. 调试验证Jar包
           Write-Host "===== 调试信息 ====="
           if (Test-Path $APP_JAR_PATH) {
               Write-Host "✅ Jar文件存在：$APP_JAR_PATH"
               $jarSize = (Get-Item $APP_JAR_PATH).Length
               Write-Host "Jar文件大小：$jarSize 字节"
           } else {
-              Write-Error "❌ 找不到Jar文件！请检查："
-              Write-Error "1. Maven打包步骤是否成功（BUILD SUCCESS）"
-              Write-Error "2. Jar文件名是否与pom.xml生成的一致（如带版本号需修改\$JAR_FILE_NAME）"
+              Write-Error "❌ 找不到Jar文件：$APP_JAR_PATH"
               exit 1
           }
           Write-Host "===================="
 
-          # 3. 创建EXE输出目录（确保目录存在）
+          # 3. 创建输出目录（使用绝对路径）
           New-Item -ItemType Directory -Force -Path $OUTPUT_DIR | Out-Null
 
-          # 4. 核心：单行jpackage命令（无续行符，彻底避免解析错误）
-          jpackage --type exe --input ./target --output $OUTPUT_DIR --name "$APP_NAME" --main-jar "$JAR_FILE_NAME" --main-class "$MAIN_CLASS" --win-console
-        shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+          # 4. 核心：jpackage命令（用双引号强制包裹路径变量，确保作为单个字符串）
+          jpackage --type exe --input "./target" --output "$OUTPUT_DIR" --name "$APP_NAME" --main-jar "$JAR_FILE_NAME" --main-class "$MAIN_CLASS" --win-console
+        shell: C:\Program Files\PowerShell\7\pwsh.exe -command ". '{0}'"
 
       - name: 上传Jar包产物
         uses: actions/upload-artifact@v4
