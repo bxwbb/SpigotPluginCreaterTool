@@ -27,25 +27,32 @@ jobs:
         run: mvn clean package -DskipTests -U
         shell: pwsh
 
-      - name: 安装Launch4j并刷新环境变量
+      - name: 安装Launch4j
         run: |
-          # 安装launch4j
+          # 安装launch4j（Chocolatey默认会安装到C:\ProgramData\chocolatey\bin）
           choco install launch4j -y
-          # 刷新环境变量，确保launch4j命令可识别
-          refreshenv
-          # 查看chocolatey安装路径（辅助调试）
-          echo "Chocolatey安装路径: $env:ChocolateyInstall"
+          # 输出安装路径（确认位置）
+          echo "Launch4j默认安装路径: C:\ProgramData\chocolatey\bin\launch4j.exe"
         shell: pwsh
 
-      - name: 验证Launch4j安装
+      - name: 验证Launch4j安装（命令+绝对路径双检查）
         run: |
-          # 检查launch4j版本，确认命令可用
+          echo "=== 验证命令调用 ==="
           try {
             launch4j --version
-            echo "Launch4j安装成功"
+            echo "命令调用成功"
           } catch {
-            echo "Launch4j未正确安装，请检查路径"
-            # 搜索launch4j.exe位置（辅助排查）
+            echo "命令调用失败（可能环境变量未刷新）"
+          }
+
+          echo "`n=== 验证绝对路径调用 ==="
+          $launch4jExePath = "C:\ProgramData\chocolatey\bin\launch4j.exe"
+          if (Test-Path $launch4jExePath) {
+            & $launch4jExePath --version
+            echo "绝对路径调用成功"
+          } else {
+            echo "错误：未找到 $launch4jExePath"
+            # 搜索可能的路径（辅助排查）
             Get-ChildItem -Path C:\ -Filter launch4j.exe -Recurse -ErrorAction SilentlyContinue | Select-Object FullName
             exit 1
           }
@@ -56,21 +63,12 @@ jobs:
           New-Item -ItemType Directory -Path ./target/exe-win64 -Force
         shell: pwsh
 
-      - name: 生成Windows 64位EXE程序
+      - name: 生成Windows 64位EXE程序（使用绝对路径）
         run: |
-          # 优先使用命令调用，若失败则尝试绝对路径（兼容不同安装位置）
-          try {
-            launch4j ./launch4j.xml
-          } catch {
-            echo "使用命令调用失败，尝试绝对路径"
-            $launch4jPath = (Get-ChildItem -Path C:\ -Filter launch4j.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
-            if ($launch4jPath) {
-              & $launch4jPath ./launch4j.xml
-            } else {
-              echo "未找到launch4j.exe"
-              exit 1
-            }
-          }
+          # 明确使用Chocolatey安装的绝对路径，避免环境变量问题
+          $launch4jExePath = "C:\ProgramData\chocolatey\bin\launch4j.exe"
+          echo "使用绝对路径生成EXE: $launch4jExePath"
+          & $launch4jExePath ./launch4j.xml
         shell: pwsh
 
       - name: 上传Jar包产物
