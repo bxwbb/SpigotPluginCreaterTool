@@ -1,4 +1,4 @@
-name: 构建Jar包和Windows可执行程序（最终稳定版）
+name: 构建Jar包和Windows可执行程序（修复中文路径问题）
 
 on:
   push:
@@ -12,117 +12,111 @@ jobs:
   build:
     runs-on: windows-latest
     env:
+      # 临时改用英文文件名，避免中文路径导致的编码问题
       JAR_FULL_PATH: "./target/SpigotPluginCreaterTool-0.0.1.jar"
       EXE_DIR: "./target/exe-win64"
-      EXE_FULL_PATH: "./target/exe-win64/我的世界spigot插件图形化开发工具.exe"
+      EXE_FULL_PATH: "./target/exe-win64/mc-plugin-tool.exe"  # 英文名称
       LAUNCH4J_CONFIG: "./launch4j.xml"
 
     steps:
       - name: 1. 拉取仓库代码
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-      - run: |
-          echo "=== 确认核心文件存在 ==="
-          # 只检查关键文件是否存在，不做冗余校验
-          if (-not (Test-Path "${{ env.LAUNCH4J_CONFIG }}")) {
-            echo "❌ 错误：launch4j.xml不存在！请放在仓库根目录"
-            exit 1
-          }
-          echo "✅ launch4j.xml已找到"
-        shell: pwsh
 
-      - name: 2. 设置JDK 21
+      - name: 2. 设置JDK 21（64位）
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
           cache: maven
-      - run: java -version  # 快速验证Java环境
-        shell: pwsh
+          architecture: x64  # 明确使用64位JDK
 
-      - name: 3. 构建Jar包
+      - name: 3. 构建Jar包并验证主类
         run: |
-          echo "=== 开始Maven打包 ==="
+          echo "=== 构建Jar包 ==="
           mvn clean package -DskipTests -U
           
-          # 验证Jar包是否生成
+          echo "`n=== 验证Jar包存在 ==="
           if (-not (Test-Path "${{ env.JAR_FULL_PATH }}")) {
-            echo "❌ 错误：Jar包未生成！检查Maven配置"
-            echo "target目录内容："
-            Get-ChildItem ./target | Select-Object Name
+            echo "❌ 错误：Jar包不存在！"
             exit 1
           }
-          echo "✅ Jar包生成成功：${{ env.JAR_FULL_PATH }}"
+          
+          echo "`n=== 验证主类是否在Jar包中 ==="
+          # 检查主类是否存在于Jar包中（替换为你的主类）
+          $mainClass = "org/bxwbb/spigotplugincreatertool/HelloApplication.class"
+          if (Get-ChildItem -Path "${{ env.JAR_FULL_PATH }}" -Filter $mainClass -Recurse -ErrorAction SilentlyContinue) {
+            echo "✅ 主类存在于Jar包中"
+          } else {
+            echo "❌ 错误：主类 $mainClass 不在Jar包中！"
+            exit 1
+          }
         shell: pwsh
 
-      - name: 4. 安装并快速定位Launch4j
+      - name: 4. 安装64位Launch4j并定位路径
         id: find_launch4j
         run: |
           echo "=== 安装Launch4j ==="
           choco install launch4j -y
           
-          # 优先搜索高概率路径（秒级完成）
-          $fastPaths = @(
-            "C:\Program Files\launch4j\launch4j.exe",
-            "C:\ProgramData\chocolatey\lib\launch4j\tools\launch4j.exe",
-            "C:\Program Files (x86)\launch4j\launch4j.exe"
+          echo "`n=== 优先搜索64位路径 ==="
+          # 只搜索64位目录（避免32位工具导致的兼容问题）
+          $64bitPaths = @(
+            "C:\Program Files\launch4j\launch4j.exe",  # 64位默认目录
+            "C:\ProgramData\chocolatey\lib\launch4j\tools\launch4j.exe"
           )
-          $foundPath = $fastPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+          $foundPath = $64bitPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
           
           if (-not $foundPath) {
-            echo "⚠️  快速路径未找到，搜索Chocolatey bin目录"
-            $foundPath = Get-ChildItem -Path "C:\ProgramData\chocolatey\bin\" -Filter "launch4j.exe" | Select-Object -First 1
-            if ($foundPath) { $foundPath = $foundPath.FullName }
-          }
-          
-          if (-not $foundPath) {
-            echo "❌ 错误：未找到launch4j.exe"
+            echo "❌ 错误：未找到64位Launch4j！"
             exit 1
           }
           
-          echo "✅ Launch4j路径：$foundPath"
+          echo "✅ 找到64位Launch4j：$foundPath"
           echo "launch4j_path=$foundPath" >> $env:GITHUB_OUTPUT
         shell: pwsh
 
-      - name: 5. 生成Windows EXE
+      - name: 5. 更新launch4j.xml为英文路径（避免中文问题）
+        run: |
+          echo "=== 替换配置文件中的中文路径 ==="
+          $configContent = Get-Content "${{ env.LAUNCH4J_CONFIG }}" -Encoding UTF8
+          # 将outfile替换为英文路径
+          $configContent -replace '<outfile>.*?</outfile>', "<outfile>${{ env.EXE_FULL_PATH }}</outfile>" | Set-Content "${{ env.LAUNCH4J_CONFIG }}" -Encoding UTF8
+          # 确认替换结果
+          echo "`n更新后的outfile配置："
+          Select-String -Path "${{ env.LAUNCH4J_CONFIG }}" -Pattern '<outfile>'
+        shell: pwsh
+
+      - name: 6. 生成EXE（捕获详细日志）
         run: |
           $launch4jPath = "${{ steps.find_launch4j.outputs.launch4j_path }}"
-          echo "=== 生成EXE ==="
+          echo "=== 生成EXE（详细日志） ==="
           
           # 创建输出目录
           New-Item -ItemType Directory -Path "${{ env.EXE_DIR }}" -Force | Out-Null
           
-          # 执行生成命令（捕获详细错误）
-          & $launch4jPath "${{ env.LAUNCH4J_CONFIG }}"
+          # 关键：捕获Launch4j的所有输出（包括错误信息）
+          & $launch4jPath "${{ env.LAUNCH4J_CONFIG }}" 2>&1 | Tee-Object -FilePath ./launch4j_log.txt
+          
+          # 检查执行结果
           if ($LASTEXITCODE -ne 0) {
-            echo "❌ EXE生成失败！Launch4j退出码：$LASTEXITCODE"
-            echo "可能原因：Jar包路径错误/主类不存在/JRE版本不匹配"
+            echo "`n❌ EXE生成失败！详细日志："
+            Get-Content ./launch4j_log.txt
             exit 1
           }
           
-          # 验证EXE是否生成
-          if (-not (Test-Path "${{ env.EXE_FULL_PATH }}")) {
-            echo "❌ 错误：EXE文件未找到！"
+          # 验证EXE
+          if (Test-Path "${{ env.EXE_FULL_PATH }}") {
+            echo "`n✅ EXE生成成功：${{ env.EXE_FULL_PATH }}"
+          } else {
+            echo "`n❌ 错误：EXE文件未生成！"
             exit 1
           }
-          echo "✅ EXE生成成功：${{ env.EXE_FULL_PATH }}"
         shell: pwsh
 
-      - name: 6. 上传产物
-        run: echo "=== 开始上传产物 ==="
-        shell: pwsh
-
-      - name: 上传Jar包
+      - name: 上传产物
         uses: actions/upload-artifact@v4
         with:
-          name: mc-plugin-tool-jar
-          path: ${{ env.JAR_FULL_PATH }}
-          if-no-files-found: error
-
-      - name: 上传Windows EXE
-        uses: actions/upload-artifact@v4
-        with:
-          name: mc-plugin-tool-windows
-          path: ${{ env.EXE_FULL_PATH }}
-          if-no-files-found: error
+          name: mc-plugin-tool
+          path: |
+            ${{ env.JAR_FULL_PATH }}
+            ${{ env.EXE_FULL_PATH }}
