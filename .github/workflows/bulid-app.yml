@@ -1,6 +1,5 @@
 name: 构建Jar包和Windows可执行程序
 
-# 触发条件：main分支的push、PR，以及发布事件
 on:
   push:
     branches: [ "main" ]
@@ -11,7 +10,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest  # 使用Windows环境构建EXE
+    runs-on: windows-latest
 
     steps:
       - name: 拉取仓库代码
@@ -21,43 +20,67 @@ jobs:
         uses: actions/setup-java@v4
         with:
           java-version: '21'
-          distribution: 'temurin'  # 使用Eclipse Temurin JDK
-          cache: maven  # 缓存Maven依赖，加速后续构建
+          distribution: 'temurin'
+          cache: maven
 
       - name: 构建可执行Jar包（强制更新依赖）
         run: mvn clean package -DskipTests -U
-        # 说明：
-        # - 生成的Jar包路径由pom.xml的<build><finalName>控制，默认在target/目录
-        # - 需确保生成的主Jar包名称与后续launch4j配置中的jarPath匹配
+        shell: pwsh
 
-      - name: 安装Launch4j（Java转EXE工具）
+      - name: 安装Launch4j并刷新环境变量
         run: |
-          # 使用Chocolatey（Windows包管理器）安装launch4j
-          # GitHub的windows-latest环境预装了Chocolatey，无需额外配置
+          # 安装launch4j
           choco install launch4j -y
-        shell: pwsh  # 使用PowerShell执行命令
+          # 刷新环境变量，确保launch4j命令可识别
+          refreshenv
+          # 查看chocolatey安装路径（辅助调试）
+          echo "Chocolatey安装路径: $env:ChocolateyInstall"
+        shell: pwsh
+
+      - name: 验证Launch4j安装
+        run: |
+          # 检查launch4j版本，确认命令可用
+          try {
+            launch4j --version
+            echo "Launch4j安装成功"
+          } catch {
+            echo "Launch4j未正确安装，请检查路径"
+            # 搜索launch4j.exe位置（辅助排查）
+            Get-ChildItem -Path C:\ -Filter launch4j.exe -Recurse -ErrorAction SilentlyContinue | Select-Object FullName
+            exit 1
+          }
+        shell: pwsh
 
       - name: 创建EXE输出目录
         run: |
-          # 确保输出目录存在（与后续EXE生成路径和上传路径一致）
           New-Item -ItemType Directory -Path ./target/exe-win64 -Force
         shell: pwsh
 
       - name: 生成Windows 64位EXE程序
         run: |
-          # 使用launch4j根据配置文件生成EXE
-          # 需确保项目根目录存在launch4j.xml配置文件（见下方说明）
-          launch4j ./launch4j.xml
+          # 优先使用命令调用，若失败则尝试绝对路径（兼容不同安装位置）
+          try {
+            launch4j ./launch4j.xml
+          } catch {
+            echo "使用命令调用失败，尝试绝对路径"
+            $launch4jPath = (Get-ChildItem -Path C:\ -Filter launch4j.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
+            if ($launch4jPath) {
+              & $launch4jPath ./launch4j.xml
+            } else {
+              echo "未找到launch4j.exe"
+              exit 1
+            }
+          }
         shell: pwsh
 
       - name: 上传Jar包产物
         uses: actions/upload-artifact@v4
         with:
           name: mc-plugin-tool-jar
-          path: ./target/*.jar  # 上传target目录下所有Jar文件
+          path: ./target/*.jar
 
       - name: 上传Windows EXE产物
         uses: actions/upload-artifact@v4
         with:
           name: mc-plugin-tool-windows
-          path: ./target/exe-win64/*.exe  # 上传生成的EXE文件
+          path: ./target/exe-win64/*.exe
