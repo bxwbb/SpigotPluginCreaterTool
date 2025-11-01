@@ -171,7 +171,7 @@
 
     <build>
         <plugins>
-            <!-- 编译插件：指定Java版本 -->
+            <!-- 1. 编译插件（确保Java版本匹配） -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -179,33 +179,28 @@
                 <configuration>
                     <source>21</source>
                     <target>21</target>
-                    <encoding>${project.build.sourceEncoding}</encoding>
                 </configuration>
             </plugin>
 
-            <!-- 打包插件：合并依赖为可执行Jar -->
+            <!-- 2. 修正后的 maven-assembly-plugin 配置 -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
                 <version>3.6.0</version>
                 <configuration>
-                    <!-- 最终Jar文件名（不含版本号） -->
-                    <finalName>SpigotPluginCreaterTool</finalName>
-                    <!-- 不添加默认的"jar-with-dependencies"后缀 -->
-                    <appendAssemblyId>false</appendAssemblyId>
+                    <!-- 关键：finalName 放在 configuration 根节点下，不是 archive 里面 -->
+                    <finalName>SpigotPluginCreaterTool</finalName> <!-- 最终Jar名（无后缀） -->
+                    <appendAssemblyId>false</appendAssemblyId> <!-- 禁止添加 "jar-with-dependencies" 后缀 -->
 
-                    <!-- 配置MANIFEST.MF（指定主类） -->
+                    <!-- archive 配置（仅用于指定主类，嵌套在 configuration 下） -->
                     <archive>
                         <manifest>
                             <mainClass>org.bxwbb.spigotplugincreatertool.HelloApplication</mainClass>
-                            <!-- 可选：添加类路径（如果需要） -->
-                            <addClasspath>true</addClasspath>
                         </manifest>
                     </archive>
 
-                    <!-- 打包类型：包含所有依赖 -->
                     <descriptorRefs>
-                        <descriptorRef>jar-with-dependencies</descriptorRef>
+                        <descriptorRef>jar-with-dependencies</descriptorRef> <!-- 打包所有依赖 -->
                     </descriptorRefs>
                 </configuration>
                 <executions>
