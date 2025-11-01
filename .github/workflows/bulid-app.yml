@@ -1,4 +1,4 @@
-name: 构建Jar包和Windows可执行程序（超时控制版）
+name: 构建Jar包和Windows可执行程序（强制JRE路径版）
 
 on:
   push:
@@ -17,33 +17,41 @@ jobs:
       EXE_FULL_PATH: "./target/exe-win64/mc-plugin-tool.exe"
       LAUNCH4J_CONFIG: "./launch4j.xml"
       MAIN_CLASS: "org.bxwbb.spigotplugincreatertool.HelloApplication"
-      TIMEOUT_SECONDS: 180  # 超时时间：3分钟
+      TIMEOUT_SECONDS: 180  # 明确设置3分钟超时
 
     steps:
       - name: 1. 拉取仓库代码
         uses: actions/checkout@v4
 
-      - name: 2. 设置JDK 21（64位）
+      - name: 2. 设置JDK 21（64位）并记录JRE路径
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
           cache: maven
           architecture: x64
+      - id: get_jre_path
+        run: |
+          # 找到JDK中的JRE路径（temurin JDK默认包含JRE）
+          $jrePath = Join-Path $env:JAVA_HOME "jre"
+          if (-not (Test-Path $jrePath)) {
+            # 某些JDK版本JRE在bin同级目录，直接用JAVA_HOME
+            $jrePath = $env:JAVA_HOME
+          }
+          echo "jre_path=$jrePath" >> $env:GITHUB_OUTPUT
+          echo "✅ 找到JRE路径：$jrePath"
+          # 验证Java可执行
+          java -version
+        shell: pwsh
 
       - name: 3. 构建Jar包（验证完整性）
         run: |
           mvn clean package -DskipTests -U
-          
-          # 验证Jar包大小（避免空包或损坏）
           $jarSize = (Get-Item "${{ env.JAR_FULL_PATH }}").Length
-          echo "Jar包大小：$jarSize 字节"
-          if ($jarSize -lt 1024) {  # 小于1KB视为异常
-            echo "❌ 错误：Jar包过小，可能损坏！"
+          if ($jarSize -lt 1024) {
+            echo "❌ 错误：Jar包过小（可能损坏）！"
             exit 1
           }
-          
-          # 验证主类
           $mainClassInJar = "${{ env.MAIN_CLASS }}".Replace('.', '/') + ".class"
           if (-not (jar tf "${{ env.JAR_FULL_PATH }}" | Select-String -Pattern "$mainClassInJar")) {
             echo "❌ 错误：主类不在Jar包中！"
@@ -64,21 +72,42 @@ jobs:
           }
         shell: pwsh
 
-      - name: 5. 配置权限与目录（避免写入阻塞）
+      - name: 5. 生成launch4j.xml（强制指定JRE路径，避免查找依赖）
         run: |
-          # 确保输出目录有读写权限
-          icacls "${{ env.EXE_DIR }}" /grant "Users:(OI)(CI)F" /T 2>&1 | Out-Null
-          New-Item -ItemType Directory -Path "${{ env.EXE_DIR }}" -Force | Out-Null
-          echo "✅ 已配置EXE目录权限"
+          # 直接生成新的配置文件，避免原配置冲突
+          $jrePath = "${{ steps.get_jre_path.outputs.jre_path }}"
+          $configContent = @"
+          <?xml version="1.0" encoding="UTF-8"?>
+          <launch4jConfig>
+            <dontWrapJar>false</dontWrapJar>
+            <jarPath>${{ env.JAR_FULL_PATH }}</jarPath>
+            <outfile>${{ env.EXE_FULL_PATH }}</outfile>
+            <platform>win64</platform>
+            <!-- 强制指定JRE路径，解决找不到JRE的问题 -->
+            <jre>
+              <path>$jrePath</path>
+              <minVersion>21</minVersion>
+              <maxVersion></maxVersion>
+            </jre>
+            <mainClass>${{ env.MAIN_CLASS }}</mainClass>
+            <version>0.0.1</version>
+            <companyName>BXWBB</companyName>
+          </launch4jConfig>
+          "@
+          # 写入配置文件
+          $configContent | Set-Content "${{ env.LAUNCH4J_CONFIG }}" -Encoding UTF8
+          echo "✅ 生成新配置文件，强制JRE路径：$jrePath"
+          echo "`n最终配置内容："
+          Get-Content "${{ env.LAUNCH4J_CONFIG }}" -Encoding UTF8
         shell: pwsh
 
-      - name: 6. 生成EXE（带超时控制+资源监控）
+      - name: 6. 生成EXE（修复超时+监控）
         run: |
           $launch4jPath = "${{ steps.find_launch4j.outputs.launch4j_path }}"
-          $timeout = ${{ env.TIMEOUT_SECONDS }}
+          $timeout = ${{ env.TIMEOUT_SECONDS }}  # 修复变量引用
           echo "=== 启动Launch4j（超时：$timeout秒） ==="
           
-          # 启动Launch4j并监控进程
+          # 启动进程并监控
           $process = Start-Process -FilePath $launch4jPath `
             -ArgumentList "${{ env.LAUNCH4J_CONFIG }}" `
             -NoNewWindow `
@@ -86,28 +115,27 @@ jobs:
             -RedirectStandardOutput "./launch4j_out.log" `
             -RedirectStandardError "./launch4j_err.log"
           
-          # 定时检查进程状态（每10秒一次）
           $elapsed = 0
-          while ($process.HasExited -eq $false -and $elapsed -lt $timeout) {
+          while (-not $process.HasExited -and $elapsed -lt $timeout) {
             Start-Sleep -Seconds 10
             $elapsed += 10
-            # 输出进程资源使用情况
-            $cpu = (Get-Counter "\Process(launch4j*)\% Processor Time").CounterSamples.CookedValue
-            $mem = (Get-Counter "\Process(launch4j*)\Working Set - Private").CounterSamples.CookedValue / 1MB
-            echo "已运行$elapsed秒 | CPU: $($cpu.ToString('N2'))% | 内存: $($mem.ToString('N2'))MB"
+            # 输出监控信息（包含超时倒计时）
+            $remaining = $timeout - $elapsed
+            $cpu = (Get-Counter "\Process(launch4j*)\% Processor Time" -ErrorAction SilentlyContinue).CounterSamples.CookedValue
+            $mem = (Get-Counter "\Process(launch4j*)\Working Set - Private" -ErrorAction SilentlyContinue).CounterSamples.CookedValue / 1MB
+            echo "已运行$elapsed秒 | 剩余$remaining秒 | CPU: $($cpu.ToString('N2'))% | 内存: $($mem.ToString('N2'))MB"
           }
           
-          # 处理超时或完成状态
-          if ($process.HasExited -eq $false) {
-            echo "`n❌ 超时！Launch4j运行超过$timeout秒，强制终止"
+          # 处理结果
+          if (-not $process.HasExited) {
+            echo "`n❌ 超时！强制终止Launch4j"
             $process | Stop-Process -Force
             exit 1
           } else {
             echo "`nLaunch4j退出码：$($process.ExitCode)"
-            # 输出日志（即使成功也看日志）
-            echo "`n标准输出日志："
+            echo "`n标准输出："
             Get-Content ./launch4j_out.log
-            echo "`n错误日志："
+            echo "`n错误输出："
             Get-Content ./launch4j_err.log
           
             if ($process.ExitCode -ne 0) {
@@ -116,11 +144,10 @@ jobs:
             }
           }
           
-          # 验证EXE
           if (Test-Path "${{ env.EXE_FULL_PATH }}") {
             echo "`n✅ EXE生成成功：${{ env.EXE_FULL_PATH }}"
           } else {
-            echo "`n❌ 错误：EXE未生成！"
+            echo "`n❌ EXE未生成！"
             exit 1
           }
         shell: pwsh
