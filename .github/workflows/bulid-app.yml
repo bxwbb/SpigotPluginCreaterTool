@@ -1,4 +1,4 @@
-name: 构建Jar包和Windows可执行程序（修复中文路径问题）
+name: 构建Jar包和Windows可执行程序（适配assembly插件）
 
 on:
   push:
@@ -12,11 +12,13 @@ jobs:
   build:
     runs-on: windows-latest
     env:
-      # 临时改用英文文件名，避免中文路径导致的编码问题
-      JAR_FULL_PATH: "./target/SpigotPluginCreaterTool-0.0.1.jar"
+      # 关键修正：使用assembly生成的实际Jar包路径（无版本号）
+      JAR_FULL_PATH: "./target/SpigotPluginCreaterTool.jar"
       EXE_DIR: "./target/exe-win64"
-      EXE_FULL_PATH: "./target/exe-win64/mc-plugin-tool.exe"  # 英文名称
+      EXE_FULL_PATH: "./target/exe-win64/mc-plugin-tool.exe"
       LAUNCH4J_CONFIG: "./launch4j.xml"
+      # 主类全路径（确保与代码完全一致，含包名）
+      MAIN_CLASS: "org.bxwbb.spigotplugincreatertool.HelloApplication"
 
     steps:
       - name: 1. 拉取仓库代码
@@ -28,26 +30,36 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: maven
-          architecture: x64  # 明确使用64位JDK
+          architecture: x64
 
-      - name: 3. 构建Jar包并验证主类
+      - name: 3. 构建Jar包（适配assembly插件）
         run: |
-          echo "=== 构建Jar包 ==="
+          echo "=== 执行Maven打包（含assembly插件） ==="
           mvn clean package -DskipTests -U
           
-          echo "`n=== 验证Jar包存在 ==="
+          echo "`n=== 查看target目录实际产物 ==="
+          Get-ChildItem ./target/*.jar | Select-Object FullName, Length  # 打印所有Jar包，确认实际文件名
+          
+          echo "`n=== 验证实际Jar包存在 ==="
           if (-not (Test-Path "${{ env.JAR_FULL_PATH }}")) {
-            echo "❌ 错误：Jar包不存在！"
+            echo "❌ 错误：实际Jar包 ${{ env.JAR_FULL_PATH }} 不存在！"
             exit 1
           }
+          echo "✅ 实际Jar包存在：${{ env.JAR_FULL_PATH }}"
           
           echo "`n=== 验证主类是否在Jar包中 ==="
-          # 检查主类是否存在于Jar包中（替换为你的主类）
-          $mainClass = "org/bxwbb/spigotplugincreatertool/HelloApplication.class"
-          if (Get-ChildItem -Path "${{ env.JAR_FULL_PATH }}" -Filter $mainClass -Recurse -ErrorAction SilentlyContinue) {
-            echo "✅ 主类存在于Jar包中"
+          # 将主类的.替换为/，适配Jar包内的路径格式
+          $mainClassInJar = "${{ env.MAIN_CLASS }}".Replace('.', '/') + ".class"
+          echo "检查主类路径：$mainClassInJar"
+          
+          # 查看Jar包内是否包含主类（使用jar命令列表功能）
+          $jarContents = jar tf "${{ env.JAR_FULL_PATH }}" | Select-String -Pattern "$mainClassInJar"
+          if ($jarContents) {
+            echo "✅ 主类存在于Jar包中：$mainClassInJar"
           } else {
-            echo "❌ 错误：主类 $mainClass 不在Jar包中！"
+            echo "❌ 错误：主类 $mainClassInJar 不在Jar包中！"
+            echo "当前Jar包内所有类文件（前20个）："
+            jar tf "${{ env.JAR_FULL_PATH }}" | Select-String -Pattern "\.class$" | Head -20
             exit 1
           }
         shell: pwsh
@@ -55,56 +67,49 @@ jobs:
       - name: 4. 安装64位Launch4j并定位路径
         id: find_launch4j
         run: |
-          echo "=== 安装Launch4j ==="
           choco install launch4j -y
-          
-          echo "`n=== 优先搜索64位路径 ==="
-          # 只搜索64位目录（避免32位工具导致的兼容问题）
           $64bitPaths = @(
-            "C:\Program Files\launch4j\launch4j.exe",  # 64位默认目录
+            "C:\Program Files\launch4j\launch4j.exe",
             "C:\ProgramData\chocolatey\lib\launch4j\tools\launch4j.exe"
           )
           $foundPath = $64bitPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
-          
           if (-not $foundPath) {
             echo "❌ 错误：未找到64位Launch4j！"
             exit 1
           }
-          
-          echo "✅ 找到64位Launch4j：$foundPath"
           echo "launch4j_path=$foundPath" >> $env:GITHUB_OUTPUT
         shell: pwsh
 
-      - name: 5. 更新launch4j.xml为英文路径（避免中文问题）
+      - name: 5. 更新launch4j.xml的Jar路径（适配实际Jar包）
         run: |
-          echo "=== 替换配置文件中的中文路径 ==="
+          echo "=== 更新launch4j.xml中的jarPath ==="
           $configContent = Get-Content "${{ env.LAUNCH4J_CONFIG }}" -Encoding UTF8
-          # 将outfile替换为英文路径
-          $configContent -replace '<outfile>.*?</outfile>', "<outfile>${{ env.EXE_FULL_PATH }}</outfile>" | Set-Content "${{ env.LAUNCH4J_CONFIG }}" -Encoding UTF8
-          # 确认替换结果
-          echo "`n更新后的outfile配置："
-          Select-String -Path "${{ env.LAUNCH4J_CONFIG }}" -Pattern '<outfile>'
+          # 替换jarPath为实际的Jar包路径
+          $configContent = $configContent -replace '<jarPath>.*?</jarPath>', "<jarPath>${{ env.JAR_FULL_PATH }}</jarPath>"
+          # 替换outfile为英文路径（避免中文问题）
+          $configContent = $configContent -replace '<outfile>.*?</outfile>', "<outfile>${{ env.EXE_FULL_PATH }}</outfile>"
+          # 保存更新后的配置文件
+          $configContent | Set-Content "${{ env.LAUNCH4J_CONFIG }}" -Encoding UTF8
+          
+          echo "`n更新后的launch4j.xml关键配置："
+          Select-String -Path "${{ env.LAUNCH4J_CONFIG }}" -Pattern '<jarPath>|<outfile>|<mainClass>'
         shell: pwsh
 
-      - name: 6. 生成EXE（捕获详细日志）
+      - name: 6. 生成Windows EXE（捕获详细日志）
         run: |
           $launch4jPath = "${{ steps.find_launch4j.outputs.launch4j_path }}"
-          echo "=== 生成EXE（详细日志） ==="
-          
-          # 创建输出目录
+          echo "=== 生成EXE ==="
           New-Item -ItemType Directory -Path "${{ env.EXE_DIR }}" -Force | Out-Null
           
-          # 关键：捕获Launch4j的所有输出（包括错误信息）
+          # 执行Launch4j并捕获完整日志
           & $launch4jPath "${{ env.LAUNCH4J_CONFIG }}" 2>&1 | Tee-Object -FilePath ./launch4j_log.txt
           
-          # 检查执行结果
           if ($LASTEXITCODE -ne 0) {
             echo "`n❌ EXE生成失败！详细日志："
             Get-Content ./launch4j_log.txt
             exit 1
           }
           
-          # 验证EXE
           if (Test-Path "${{ env.EXE_FULL_PATH }}") {
             echo "`n✅ EXE生成成功：${{ env.EXE_FULL_PATH }}"
           } else {
@@ -113,10 +118,10 @@ jobs:
           }
         shell: pwsh
 
-      - name: 上传产物
+      - name: 7. 上传最终产物
         uses: actions/upload-artifact@v4
         with:
-          name: mc-plugin-tool
+          name: mc-plugin-tool-final
           path: |
             ${{ env.JAR_FULL_PATH }}
             ${{ env.EXE_FULL_PATH }}
