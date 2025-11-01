@@ -12,34 +12,53 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <junit.version>5.10.0</junit.version>
+        <!-- 关键：从“21”改为具体小版本“21.0.2” -->
+        <javafx.version>21.0.2</javafx.version>
     </properties>
 
+    <repositories>
+        <repository>
+            <id>gluon-releases</id>
+            <!-- Gluon仓库地址：存储win-x64/linux-x64/mac-x64等平台特定JavaFX包 -->
+            <url>https://nexus.gluonhq.com/nexus/content/repositories/releases/</url>
+            <releases>
+                <enabled>true</enabled> <!-- 只启用发布版（稳定版） -->
+            </releases>
+            <snapshots>
+                <enabled>false</enabled> <!-- 禁用快照版（避免不稳定版本） -->
+            </snapshots>
+        </repository>
+    </repositories>
+
     <dependencies>
+        <!-- 1. 通用JavaFX依赖（API层，不带classifier） -->
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-controls</artifactId>
-            <version>21</version>
+            <version>${javafx.version}</version>
         </dependency>
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-fxml</artifactId>
-            <version>21</version>
+            <version>${javafx.version}</version>
         </dependency>
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-web</artifactId>
-            <version>21</version>
+            <version>${javafx.version}</version>
         </dependency>
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-swing</artifactId>
-            <version>21</version>
+            <version>${javafx.version}</version>
         </dependency>
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-media</artifactId>
-            <version>21</version>
+            <version>${javafx.version}</version>
         </dependency>
+
+        <!-- 以下是你项目的其他依赖，保持不变 -->
         <dependency>
             <groupId>org.controlsfx</groupId>
             <artifactId>controlsfx</artifactId>
@@ -124,29 +143,23 @@
         <dependency>
             <groupId>com.alibaba.fastjson2</groupId>
             <artifactId>fastjson2</artifactId>
-            <version>2.0.41</version> <!-- 版本号可根据最新稳定版调整 -->
+            <version>2.0.41</version>
         </dependency>
-        <!-- SLF4J 核心 API（日志门面） -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
-            <version>2.0.9</version> <!-- 最新稳定版本 -->
+            <version>2.0.9</version>
         </dependency>
-
-        <!-- Logback 核心实现 -->
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-core</artifactId>
-            <version>1.4.8</version>
+            <version>1.5.19</version>
         </dependency>
-
-        <!-- Logback 经典绑定（实现 SLF4J 接口） -->
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
-            <version>1.4.8</version>
+            <version>1.5.13</version>
         </dependency>
-
         <dependency>
             <groupId>com.caucho</groupId>
             <artifactId>hessian</artifactId>
@@ -156,6 +169,34 @@
 
     <build>
         <plugins>
+            <!-- 3. 打包插件：合并所有依赖（含win-x64原生库）为一个Jar -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <version>3.6.0</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>org.bxwbb.spigotplugincreatertool.HelloApplication</mainClass>
+                        </manifest>
+                    </archive>
+                    <descriptorRefs>
+                        <descriptorRef>jar-with-dependencies</descriptorRef> <!-- 打包所有依赖 -->
+                    </descriptorRefs>
+                    <finalName>SpigotPluginCreaterTool</finalName> <!-- 固定Jar名，与工作流匹配 -->
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>make-assembly</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- 可选：编译插件（确保Java版本匹配） -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -164,28 +205,6 @@
                     <source>21</source>
                     <target>21</target>
                 </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.openjfx</groupId>
-                <artifactId>javafx-maven-plugin</artifactId>
-                <version>0.0.8</version>
-                <executions>
-                    <execution>
-                        <!-- Default configuration for running with: mvn clean javafx:run -->
-                        <id>default-cli</id>
-                        <configuration>
-                            <mainClass>
-                                org.bxwbb.spigotplugincreatertool/org.bxwbb.spigotplugincreatertool.HelloApplication
-                            </mainClass>
-                            <launcher>app</launcher>
-                            <jlinkZipName>app</jlinkZipName>
-                            <jlinkImageName>app</jlinkImageName>
-                            <noManPages>true</noManPages>
-                            <stripDebug>true</stripDebug>
-                            <noHeaderFiles>true</noHeaderFiles>
-                        </configuration>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>
