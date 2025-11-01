@@ -1,4 +1,4 @@
-name: 构建Jar包和Windows可执行程序（终极稳定版）
+name: 构建Jar包和Windows可执行程序（官方64位Launch4j版）
 
 on:
   push:
@@ -11,22 +11,21 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-    # 提前定义变量，确保全步骤可见
     env:
       JAR_FULL_PATH: "./target/SpigotPluginCreaterTool.jar"
       EXE_DIR: "./target/exe-win64"
       EXE_FULL_PATH: "./target/exe-win64/mc-plugin-tool.exe"
       LAUNCH4J_CONFIG: "./launch4j.xml"
       MAIN_CLASS: "org.bxwbb.spigotplugincreatertool.HelloApplication"
-      TIMEOUT_SECONDS: 180  # 3分钟超时
-      # 直接指定64位Launch4j下载地址（避免Chocolatey的32位版本）
-      LAUNCH4J_64_URL: "https://github.com/lukaszlenart/launch4j/releases/download/v3.14/launch4j-3.14-win64.zip"
+      TIMEOUT_SECONDS: 180
+      # 官方64位Launch4j下载地址（SourceForge，稳定有效）
+      LAUNCH4J_64_EXE_URL: "https://downloads.sourceforge.net/project/launch4j/launch4j-3/3.14/launch4j-3.14-win64.exe"
 
     steps:
       - name: 1. 拉取仓库代码
         uses: actions/checkout@v4
 
-      - name: 2. 设置64位JDK 21（验证并转义JRE路径）
+      - name: 2. 设置64位JDK 21（验证JRE路径）
         uses: actions/setup-java@v4
         with:
           java-version: '21'
@@ -35,127 +34,96 @@ jobs:
           architecture: x64
       - id: get_jre
         run: |
-          # 1. 确认超时变量是否生效（关键排查）
-          echo "✅ 超时变量值：${{ env.TIMEOUT_SECONDS }}"
-          if (-not ${{ env.TIMEOUT_SECONDS }}) {
-            echo "❌ 错误：超时变量未传递！"
-            exit 1
-          }
+          # 验证超时变量
+          echo "✅ 超时时间：${{ env.TIMEOUT_SECONDS }}秒"
+          if (-not ${{ env.TIMEOUT_SECONDS }}) { exit 1 }
 
-          # 2. 获取JRE路径并转义（XML中需用\\代替\）
-          $jreRawPath = Join-Path $env:JAVA_HOME "jre"
-          if (-not (Test-Path $jreRawPath)) {
-            $jreRawPath = $env:JAVA_HOME  # 某些JDK无独立JRE目录
-          }
-          $jreEscapedPath = $jreRawPath -replace "\\", "\\\\"  # 转义为XML兼容格式（C:\\...）
-          echo "✅ 原始JRE路径：$jreRawPath"
-          echo "✅ XML转义后路径：$jreEscapedPath"
-          echo "jre_escaped=$jreEscapedPath" >> $env:GITHUB_OUTPUT
+          # 获取并转义JRE路径（XML兼容）
+          $jreRaw = if (Test-Path "$env:JAVA_HOME/jre") { "$env:JAVA_HOME/jre" } else { "$env:JAVA_HOME" }
+          $jreEscaped = $jreRaw -replace "\\", "\\\\"  # 转义为C:\\...
+          echo "jre_escaped=$jreEscaped" >> $env:GITHUB_OUTPUT
+          echo "✅ JRE路径（转义后）：$jreEscaped"
 
-          # 3. 验证JRE有效性（确保能找到java.exe）
-          $javaExe = Join-Path $jreRawPath "bin\java.exe"
-          if (Test-Path $javaExe) {
-            echo "✅ Java.exe存在：$javaExe"
-            & $javaExe -version  # 验证Java可运行
-          } else {
-            echo "❌ 错误：JRE路径下无java.exe！"
-            exit 1
-          }
+          # 验证Java有效性
+          & "$jreRaw/bin/java.exe" -version
         shell: pwsh
 
-      - name: 3. 构建Jar包（最终验证）
+      - name: 3. 构建Jar包
         run: |
           mvn clean package -DskipTests -U
-          # 验证Jar包和主类
-          if (-not (Test-Path "${{ env.JAR_FULL_PATH }}")) {
-            echo "❌ Jar包不存在！"
-            exit 1
-          }
+          if (-not (Test-Path "${{ env.JAR_FULL_PATH }}")) { exit 1 }
           $mainClassInJar = "${{ env.MAIN_CLASS }}".Replace('.', '/') + ".class"
-          if (-not (jar tf "${{ env.JAR_FULL_PATH }}" | Select-String -Pattern "$mainClassInJar")) {
-            echo "❌ 主类不在Jar包中！"
-            exit 1
-          }
-          echo "✅ Jar包验证通过（大小：$(Get-Item "${{ env.JAR_FULL_PATH }}").Length 字节）"
+          if (-not (jar tf "${{ env.JAR_FULL_PATH }}" | Select-String $mainClassInJar)) { exit 1 }
+          echo "✅ Jar包验证通过"
         shell: pwsh
 
-      - name: 4. 安装64位Launch4j（彻底解决32/64兼容问题）
+      - name: 4. 安装官方64位Launch4j（静默模式）
         id: get_launch4j
         run: |
-          echo "=== 下载64位Launch4j ==="
-          Invoke-WebRequest -Uri "${{ env.LAUNCH4J_64_URL }}" -OutFile "./launch4j.zip"
-          
-          echo "=== 解压到指定目录 ==="
-          Expand-Archive -Path "./launch4j.zip" -DestinationPath "./launch4j-64" -Force
-          $launch4jPath = "./launch4j-64/launch4j.exe"
-          
-          # 验证64位工具
+          echo "=== 下载官方64位Launch4j ==="
+          # 使用Invoke-WebRequest下载，添加超时重试
+          Invoke-WebRequest -Uri "${{ env.LAUNCH4J_64_EXE_URL }}" `
+            -OutFile "./launch4j-64.exe" `
+            -TimeoutSec 60 `
+            -MaximumRetryCount 3 `
+            -RetryIntervalSec 5
+
+          echo "=== 静默安装（无交互） ==="
+          # /S 是静默安装参数，安装到默认目录C:\Program Files\launch4j
+          Start-Process -FilePath "./launch4j-64.exe" -ArgumentList "/S" -Wait -NoNewWindow
+
+          echo "=== 验证安装 ==="
+          $launch4jPath = "C:\Program Files\launch4j\launch4j.exe"
           if (Test-Path $launch4jPath) {
             echo "✅ 64位Launch4j路径：$launch4jPath"
             & $launch4jPath --version  # 输出版本确认
             echo "launch4j_path=$launch4jPath" >> $env:GITHUB_OUTPUT
           } else {
-            echo "❌ 错误：64位Launch4j解压失败！"
+            echo "❌ 安装失败！搜索可能路径："
+            Get-ChildItem -Path C:\ -Filter "launch4j.exe" -Recurse -Depth 3 | Select-Object FullName
             exit 1
           }
         shell: pwsh
 
-      - name: 5. 生成XML配置（确保转义正确）
+      - name: 5. 生成XML配置（转义正确）
         run: |
-          # 生成XML时，所有路径均用转义后的格式（避免解析错误）
           $config = @"
           <?xml version="1.0" encoding="UTF-8"?>
           <launch4jConfig>
             <dontWrapJar>false</dontWrapJar>
-            <jarPath>${{ env.JAR_FULL_PATH }}</jarPath>  <!-- 相对路径无需转义 -->
+            <jarPath>${{ env.JAR_FULL_PATH }}</jarPath>
             <outfile>${{ env.EXE_FULL_PATH }}</outfile>
             <platform>win64</platform>
-            <!-- JRE路径已转义（C:\\...），XML可正常解析 -->
             <jre>
               <path>${{ steps.get_jre.outputs.jre_escaped }}</path>
               <minVersion>21</minVersion>
-              <maxVersion>21</maxVersion>  <!-- 限制JRE版本，避免兼容问题 -->
+              <maxVersion>21</maxVersion>
             </jre>
             <mainClass>${{ env.MAIN_CLASS }}</mainClass>
-            <!-- 关闭不必要的功能，减少处理负担 -->
-            <manifest></manifest>
-            <classPath></classPath>
           </launch4jConfig>
           "@
-          # 写入并验证配置
           $config | Set-Content "${{ env.LAUNCH4J_CONFIG }}" -Encoding UTF8
-          echo "✅ 生成最终配置文件（转义已处理）："
-          Get-Content "${{ env.LAUNCH4J_CONFIG }}" -Encoding UTF8
-          # 额外检查XML语法（避免标签未闭合）
-          if ($config -match '<launch4jConfig>.*?</launch4jConfig>' -and $config -notmatch '<[^/]+></[^>]+>') {
-            echo "✅ XML语法初步验证通过"
-          } else {
-            echo "❌ 错误：XML配置语法异常！"
-            exit 1
-          }
+          echo "✅ 配置文件生成完成"
         shell: pwsh
 
-      - name: 6. 生成EXE（超时修复+实时监控）
+      - name: 6. 生成EXE（超时监控）
         run: |
           $launch4j = "${{ steps.get_launch4j.outputs.launch4j_path }}"
-          $timeout = [int]${{ env.TIMEOUT_SECONDS }}  # 强制转为整数，避免解析问题
+          $timeout = [int]${{ env.TIMEOUT_SECONDS }}
           $elapsed = 0
 
-          echo "=== 启动64位Launch4j（超时：$timeout秒） ==="
-          # 启动进程并捕获双输出流
+          # 启动生成
           $process = Start-Process -FilePath $launch4j `
             -ArgumentList "${{ env.LAUNCH4J_CONFIG }}" `
-            -NoNewWindow `
-            -PassThru `
+            -NoNewWindow -PassThru `
             -RedirectStandardOutput "./out.log" `
             -RedirectStandardError "./err.log"
 
-          # 实时监控（每5秒一次，更灵敏）
+          # 监控进程
           while (-not $process.HasExited -and $elapsed -lt $timeout) {
-            Start-Sleep -Seconds 5
+            Start-Sleep 5
             $elapsed += 5
             $remaining = $timeout - $elapsed
-            # 获取资源占用（处理可能的计数器不存在问题）
             $cpu = (Get-Counter "\Process(launch4j*)\% Processor Time" -ErrorAction SilentlyContinue).CounterSamples.CookedValue
             $mem = (Get-Counter "\Process(launch4j*)\Working Set - Private" -ErrorAction SilentlyContinue).CounterSamples.CookedValue / 1MB
             echo "已运行$elapsed秒 | 剩余$remaining秒 | CPU: $($cpu.ToString('N2'))% | 内存: $($mem.ToString('N2'))MB"
@@ -163,29 +131,26 @@ jobs:
 
           # 结果处理
           if (-not $process.HasExited) {
-            echo "`n❌ 超时！强制终止进程"
             $process | Stop-Process -Force
+            echo "❌ 超时终止"
             exit 1
           } else {
-            echo "`n✅ Launch4j正常退出（码：$($process.ExitCode)）"
-            echo "`n标准输出："
-            Get-Content "./out.log"
-            echo "`n错误输出："
-            Get-Content "./err.log"
+            echo "`n退出码：$($process.ExitCode)"
+            echo "标准输出：$(Get-Content ./out.log)"
+            echo "错误输出：$(Get-Content ./err.log)"
             if ($process.ExitCode -ne 0) { exit 1 }
           }
 
-          # 最终验证EXE
+          # 验证EXE
           if (Test-Path "${{ env.EXE_FULL_PATH }}") {
-            echo "`n🎉 64位EXE生成成功！路径：${{ env.EXE_FULL_PATH }}"
-            echo "EXE大小：$(Get-Item "${{ env.EXE_FULL_PATH }}").Length 字节"
+            echo "`n🎉 EXE生成成功！路径：${{ env.EXE_FULL_PATH }}"
           } else {
-            echo "`n❌ EXE未生成！"
+            echo "❌ EXE未生成"
             exit 1
           }
         shell: pwsh
 
-      - name: 7. 上传最终产物
+      - name: 7. 上传产物
         uses: actions/upload-artifact@v4
         with:
           name: mc-plugin-tool-final
