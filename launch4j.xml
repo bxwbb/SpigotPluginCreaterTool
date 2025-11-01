@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch4jConfig>
+    <!-- 是否不包裹Jar（false表示将Jar嵌入EXE，true表示外部引用） -->
+    <dontWrapJar>false</dontWrapJar>
+
+    <!-- 输入Jar包路径（需与Maven生成的主Jar路径一致） -->
+    <!-- 例如：若Maven生成的Jar为target/myapp-1.0.0.jar，则此处填./target/myapp-1.0.0.jar -->
+    <jarPath>./target/SpigotPluginCreaterTool-0.0.1.jar</jarPath>
+
+    <!-- 输出EXE路径（需与工作流中exe-win64目录一致） -->
+    <outfile>./target/exe-win64/我的世界spigot插件图形化开发工具.exe</outfile>
+
+    <!-- 目标平台：64位Windows -->
+    <platform>win64</platform>
+
+    <!-- JRE配置：最低版本要求（根据你的项目JRE版本修改） -->
+    <minVersion>17</minVersion>  <!-- 若项目用JDK 21，建议最低设为17或21 -->
+    <jdkPreference>preferJre</jdkPreference>  <!-- 优先使用JRE -->
+
+    <!-- 主类全路径（必须填写正确的包名+类名，如com.example.App） -->
+    <mainClass>你的主类全路径</mainClass>
+
+    <!-- 可选配置：程序信息 -->
+    <version>1.0.0</version>  <!-- 程序版本 -->
+    <companyName>BXWBB/BXWBB</companyName>
+    <copyright>© 2025 BXWBB</copyright>
+    <productName>我的世界spigot插件图形化开发工具</productName>
+
+    <!-- 可选：程序图标（需提前准备.ico文件，路径自行调整） -->
+    <!-- <icon>./src/main/resources/icon.ico</icon> -->
+</launch4jConfig>

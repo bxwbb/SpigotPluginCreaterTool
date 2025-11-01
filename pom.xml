@@ -6,7 +6,7 @@
 
     <groupId>org.bxwbb</groupId>
     <artifactId>SpigotPluginCreaterTool</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>0.0.1</version>
     <name>SpigotPluginCreaterTool</name>
 
     <properties>
