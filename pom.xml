@@ -12,26 +12,24 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <junit.version>5.10.0</junit.version>
-        <!-- 关键：从“21”改为具体小版本“21.0.2” -->
         <javafx.version>21.0.2</javafx.version>
     </properties>
 
     <repositories>
         <repository>
             <id>gluon-releases</id>
-            <!-- Gluon仓库地址：存储win-x64/linux-x64/mac-x64等平台特定JavaFX包 -->
             <url>https://nexus.gluonhq.com/nexus/content/repositories/releases/</url>
             <releases>
-                <enabled>true</enabled> <!-- 只启用发布版（稳定版） -->
+                <enabled>true</enabled>
             </releases>
             <snapshots>
-                <enabled>false</enabled> <!-- 禁用快照版（避免不稳定版本） -->
+                <enabled>false</enabled>
             </snapshots>
         </repository>
     </repositories>
 
     <dependencies>
-        <!-- 1. 通用JavaFX依赖（API层，不带classifier） -->
+        <!-- JavaFX 核心依赖 -->
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-controls</artifactId>
@@ -58,7 +56,7 @@
             <version>${javafx.version}</version>
         </dependency>
 
-        <!-- 以下是你项目的其他依赖，保持不变 -->
+        <!-- 第三方UI组件 -->
         <dependency>
             <groupId>org.controlsfx</groupId>
             <artifactId>controlsfx</artifactId>
@@ -118,6 +116,8 @@
                 </exclusion>
             </exclusions>
         </dependency>
+
+        <!-- 测试框架 -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
@@ -130,6 +130,8 @@
             <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
+
+        <!-- 其他功能依赖 -->
         <dependency>
             <groupId>com.github.javaparser</groupId>
             <artifactId>javaparser-core</artifactId>
@@ -169,25 +171,42 @@
 
     <build>
         <plugins>
-            <!-- 3. 打包插件：合并所有依赖（含win-x64原生库）为一个Jar -->
+            <!-- 编译插件：指定Java版本 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <source>21</source>
+                    <target>21</target>
+                    <encoding>${project.build.sourceEncoding}</encoding>
+                </configuration>
+            </plugin>
+
+            <!-- 打包插件：合并依赖为可执行Jar -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
                 <version>3.6.0</version>
                 <configuration>
+                    <!-- 最终Jar文件名（不含版本号） -->
+                    <finalName>SpigotPluginCreaterTool</finalName>
+                    <!-- 不添加默认的"jar-with-dependencies"后缀 -->
+                    <appendAssemblyId>false</appendAssemblyId>
+
+                    <!-- 配置MANIFEST.MF（指定主类） -->
                     <archive>
                         <manifest>
                             <mainClass>org.bxwbb.spigotplugincreatertool.HelloApplication</mainClass>
-                            <!-- 关键：强制指定最终Jar名，无版本号、无后缀 -->
-                            <finalName>SpigotPluginCreaterTool</finalName>
-                            <!-- 关键：去掉默认的"jar-with-dependencies"后缀 -->
-                            <appendAssemblyId>false</appendAssemblyId>
+                            <!-- 可选：添加类路径（如果需要） -->
+                            <addClasspath>true</addClasspath>
                         </manifest>
                     </archive>
+
+                    <!-- 打包类型：包含所有依赖 -->
                     <descriptorRefs>
-                        <descriptorRef>jar-with-dependencies</descriptorRef> <!-- 打包所有依赖 -->
+                        <descriptorRef>jar-with-dependencies</descriptorRef>
                     </descriptorRefs>
-                    <finalName>SpigotPluginCreaterTool</finalName> <!-- 固定Jar名，与工作流匹配 -->
                 </configuration>
                 <executions>
                     <execution>
@@ -198,17 +217,6 @@
                         </goals>
                     </execution>
                 </executions>
-            </plugin>
-
-            <!-- 可选：编译插件（确保Java版本匹配） -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.11.0</version>
-                <configuration>
-                    <source>21</source>
-                    <target>21</target>
-                </configuration>
             </plugin>
         </plugins>
     </build>

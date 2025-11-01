@@ -21,37 +21,31 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
-          cache: maven  # 先保留缓存，后续用-U强制更新
+          cache: maven
 
-      # 关键：强制清理旧依赖并更新（确保下载win-x64版本）
       - name: 构建可执行Jar包（强制更新依赖）
-        run: mvn clean package -DskipTests -U  # 加-U参数，强制Maven更新依赖，包括平台包
+        run: mvn clean package -DskipTests -U
 
       - name: 生成Windows 64位 EXE程序
         run: |
-          # 1. 基础变量
           $JAR_FILE_NAME = "SpigotPluginCreaterTool.jar"
-          $APP_JAR_PATH = "./target/$JAR_FILE_NAME"  # 完整Jar路径
+          $APP_JAR_PATH = "./target/$JAR_FILE_NAME"
           $APP_NAME = "我的世界spigot插件图形化开发工具"
           $MAIN_CLASS = "org.bxwbb.spigotplugincreatertool.HelloApplication"
           $OUTPUT_DIR = "./target/exe-win64"
 
-          # 2. 关键调试：确认Jar文件是否存在（必须先确保Jar生成成功！）
           Write-Host "===== 调试信息 ====="
           if (Test-Path $APP_JAR_PATH) {
               Write-Host "✅ Jar文件存在：$APP_JAR_PATH"
               Write-Host "Jar文件大小：$(Get-Item $APP_JAR_PATH).Length 字节"
           } else {
               Write-Error "❌ 找不到Jar文件：$APP_JAR_PATH"
-              Write-Error "请检查Maven打包步骤是否成功，或Jar文件名是否带版本号（如SpigotPluginCreaterTool-1.0-SNAPSHOT.jar）"
-              exit 1  # Jar不存在直接退出，避免后续错误
+              exit 1
           }
           Write-Host "===================="
 
-          # 3. 创建输出目录
           New-Item -ItemType Directory -Force -Path $OUTPUT_DIR | Out-Null
 
-          # 4. 核心：jpackage 单行命令（无续行符，彻底避免解析问题）
           jpackage --type exe --input ./target --output $OUTPUT_DIR --name "$APP_NAME" --main-jar "$JAR_FILE_NAME" --main-class "$MAIN_CLASS" --win-console
 
       - name: 上传Jar包产物
@@ -64,4 +58,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mc-plugin-tool-windows
-          path: ./target/exe/*.exe
+          path: ./target/exe-win64/*.exe  # 修正路径，与生成目录匹配
