@@ -1,4 +1,4 @@
-name: 构建Jar包和Windows可执行程序
+name: 构建Jar包和Windows可执行程序（超时控制版）
 
 on:
   push:
@@ -12,11 +12,12 @@ jobs:
   build:
     runs-on: windows-latest
     env:
-      JAR_FULL_PATH: "./target/SpigotPluginCreaterTool.jar"  # assembly生成的Jar
+      JAR_FULL_PATH: "./target/SpigotPluginCreaterTool.jar"
       EXE_DIR: "./target/exe-win64"
       EXE_FULL_PATH: "./target/exe-win64/mc-plugin-tool.exe"
       LAUNCH4J_CONFIG: "./launch4j.xml"
       MAIN_CLASS: "org.bxwbb.spigotplugincreatertool.HelloApplication"
+      TIMEOUT_SECONDS: 180  # 超时时间：3分钟
 
     steps:
       - name: 1. 拉取仓库代码
@@ -30,91 +31,101 @@ jobs:
           cache: maven
           architecture: x64
 
-      - name: 3. 构建Jar包（验证主类）
+      - name: 3. 构建Jar包（验证完整性）
         run: |
           mvn clean package -DskipTests -U
           
-          # 验证Jar包和主类
-          if (-not (Test-Path "${{ env.JAR_FULL_PATH }}")) {
-            echo "❌ 错误：Jar包不存在！"
+          # 验证Jar包大小（避免空包或损坏）
+          $jarSize = (Get-Item "${{ env.JAR_FULL_PATH }}").Length
+          echo "Jar包大小：$jarSize 字节"
+          if ($jarSize -lt 1024) {  # 小于1KB视为异常
+            echo "❌ 错误：Jar包过小，可能损坏！"
             exit 1
           }
+          
+          # 验证主类
           $mainClassInJar = "${{ env.MAIN_CLASS }}".Replace('.', '/') + ".class"
           if (-not (jar tf "${{ env.JAR_FULL_PATH }}" | Select-String -Pattern "$mainClassInJar")) {
             echo "❌ 错误：主类不在Jar包中！"
             exit 1
           }
-          echo "✅ Jar包和主类验证通过"
         shell: pwsh
 
-      - name: 4. 安装并定位32位Launch4j（关键修复）
+      - name: 4. 安装并定位Launch4j
         id: find_launch4j
         run: |
-          echo "=== 安装Launch4j（默认32位） ==="
           choco install launch4j -y
-          
-          echo "`n=== 搜索32位默认安装路径（优先） ==="
-          # 32位程序默认安装目录：C:\Program Files (x86)\launch4j
           $launch4jPath = "C:\Program Files (x86)\launch4j\launch4j.exe"
-          
           if (Test-Path $launch4jPath) {
-            echo "✅ 找到32位Launch4j：$launch4jPath"
-            # 验证工具可执行（输出版本）
-            & $launch4jPath --version
             echo "launch4j_path=$launch4jPath" >> $env:GITHUB_OUTPUT
           } else {
-            # 备选搜索：Chocolatey可能的安装路径
-            $altPath = Get-ChildItem -Path "C:\ProgramData\chocolatey\lib\launch4j" -Filter "launch4j.exe" -Recurse | Select-Object -First 1
-            if ($altPath) {
-              $launch4jPath = $altPath.FullName
-              echo "✅ 找到Launch4j（备选路径）：$launch4jPath"
-              echo "launch4j_path=$launch4jPath" >> $env:GITHUB_OUTPUT
-            } else {
-              echo "❌ 错误：未找到Launch4j！"
+            echo "❌ 未找到Launch4j！"
+            exit 1
+          }
+        shell: pwsh
+
+      - name: 5. 配置权限与目录（避免写入阻塞）
+        run: |
+          # 确保输出目录有读写权限
+          icacls "${{ env.EXE_DIR }}" /grant "Users:(OI)(CI)F" /T 2>&1 | Out-Null
+          New-Item -ItemType Directory -Path "${{ env.EXE_DIR }}" -Force | Out-Null
+          echo "✅ 已配置EXE目录权限"
+        shell: pwsh
+
+      - name: 6. 生成EXE（带超时控制+资源监控）
+        run: |
+          $launch4jPath = "${{ steps.find_launch4j.outputs.launch4j_path }}"
+          $timeout = ${{ env.TIMEOUT_SECONDS }}
+          echo "=== 启动Launch4j（超时：$timeout秒） ==="
+          
+          # 启动Launch4j并监控进程
+          $process = Start-Process -FilePath $launch4jPath `
+            -ArgumentList "${{ env.LAUNCH4J_CONFIG }}" `
+            -NoNewWindow `
+            -PassThru `
+            -RedirectStandardOutput "./launch4j_out.log" `
+            -RedirectStandardError "./launch4j_err.log"
+          
+          # 定时检查进程状态（每10秒一次）
+          $elapsed = 0
+          while ($process.HasExited -eq $false -and $elapsed -lt $timeout) {
+            Start-Sleep -Seconds 10
+            $elapsed += 10
+            # 输出进程资源使用情况
+            $cpu = (Get-Counter "\Process(launch4j*)\% Processor Time").CounterSamples.CookedValue
+            $mem = (Get-Counter "\Process(launch4j*)\Working Set - Private").CounterSamples.CookedValue / 1MB
+            echo "已运行$elapsed秒 | CPU: $($cpu.ToString('N2'))% | 内存: $($mem.ToString('N2'))MB"
+          }
+          
+          # 处理超时或完成状态
+          if ($process.HasExited -eq $false) {
+            echo "`n❌ 超时！Launch4j运行超过$timeout秒，强制终止"
+            $process | Stop-Process -Force
+            exit 1
+          } else {
+            echo "`nLaunch4j退出码：$($process.ExitCode)"
+            # 输出日志（即使成功也看日志）
+            echo "`n标准输出日志："
+            Get-Content ./launch4j_out.log
+            echo "`n错误日志："
+            Get-Content ./launch4j_err.log
+          
+            if ($process.ExitCode -ne 0) {
+              echo "`n❌ EXE生成失败！"
               exit 1
             }
           }
-        shell: pwsh
-
-      - name: 5. 更新launch4j.xml配置（确保生成64位EXE）
-        run: |
-          echo "=== 确保配置生成64位EXE ==="
-          $configContent = Get-Content "${{ env.LAUNCH4J_CONFIG }}" -Encoding UTF8
-          # 强制设置platform为win64（即使工具是32位）
-          $configContent = $configContent -replace '<platform>.*?</platform>', "<platform>win64</platform>"
-          # 同步jarPath和outfile路径
-          $configContent = $configContent -replace '<jarPath>.*?</jarPath>', "<jarPath>${{ env.JAR_FULL_PATH }}</jarPath>"
-          $configContent = $configContent -replace '<outfile>.*?</outfile>', "<outfile>${{ env.EXE_FULL_PATH }}</outfile>"
-          # 保存配置
-          $configContent | Set-Content "${{ env.LAUNCH4J_CONFIG }}" -Encoding UTF8
           
-          echo "`n更新后的关键配置："
-          Select-String -Path "${{ env.LAUNCH4J_CONFIG }}" -Pattern '<platform>|<jarPath>|<outfile>'
-        shell: pwsh
-
-      - name: 6. 生成Windows 64位EXE（捕获详细日志）
-        run: |
-          $launch4jPath = "${{ steps.find_launch4j.outputs.launch4j_path }}"
-          echo "=== 使用32位Launch4j生成64位EXE ==="
-          New-Item -ItemType Directory -Path "${{ env.EXE_DIR }}" -Force | Out-Null
-          
-          # 执行生成并捕获完整日志
-          & $launch4jPath "${{ env.LAUNCH4J_CONFIG }}" 2>&1 | Tee-Object -FilePath ./launch4j_log.txt
-          
-          # 检查结果
-          if ($LASTEXITCODE -ne 0) {
-            echo "`n❌ EXE生成失败！详细日志："
-            Get-Content ./launch4j_log.txt
+          # 验证EXE
+          if (Test-Path "${{ env.EXE_FULL_PATH }}") {
+            echo "`n✅ EXE生成成功：${{ env.EXE_FULL_PATH }}"
+          } else {
+            echo "`n❌ 错误：EXE未生成！"
             exit 1
           }
-          if (-not (Test-Path "${{ env.EXE_FULL_PATH }}")) {
-            echo "`n❌ 错误：EXE文件未生成！"
-            exit 1
-          }
-          echo "`n✅ 64位EXE生成成功：${{ env.EXE_FULL_PATH }}"
         shell: pwsh
 
-      - name: 7. 上传最终产物
+      - name: 7. 上传产物
         uses: actions/upload-artifact@v4
         with:
           name: mc-plugin-tool-final
