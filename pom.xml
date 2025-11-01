@@ -178,6 +178,10 @@
                     <archive>
                         <manifest>
                             <mainClass>org.bxwbb.spigotplugincreatertool.HelloApplication</mainClass>
+                            <!-- 关键：强制指定最终Jar名，无版本号、无后缀 -->
+                            <finalName>SpigotPluginCreaterTool</finalName>
+                            <!-- 关键：去掉默认的"jar-with-dependencies"后缀 -->
+                            <appendAssemblyId>false</appendAssemblyId>
                         </manifest>
                     </archive>
                     <descriptorRefs>
