@@ -29,36 +29,31 @@ jobs:
 
       - name: 生成Windows EXE程序
         run: |
-          # 1. 基础变量（核对Jar文件名！）
-          $JAR_FILE_NAME = "SpigotPluginCreaterTool.jar"  # 务必确认实际文件名（如带版本号需修改）
+          # 1. 基础变量（务必核对Jar文件名！重点：是否带版本号，如-1.0-SNAPSHOT）
+          $JAR_FILE_NAME = "SpigotPluginCreaterTool.jar"
           $APP_NAME = "我的世界spigot插件图形化开发工具"
           $MAIN_CLASS = "org.bxwbb.spigotplugincreatertool.HelloApplication"
           $OUTPUT_DIR = "./target/exe"
 
-          # 2. 从Maven仓库提取JavaFX模块路径（无需下载SDK！）
+          # 2. 提取JavaFX模块路径（从Maven仓库）
           $fxGroupPath = "$HOME/.m2/repository/org/openjfx"
           $fxModulePaths = Get-ChildItem -Path $fxGroupPath -Recurse -Directory | 
                            Where-Object { $_.FullName -match "win-x64" } | 
                            Select-Object -ExpandProperty FullName
-          $fxModulePath = $fxModulePaths -join ";"
+          $fxModulePath = $fxModulePaths -join ";"  # Windows路径用分号分隔
 
-          # 3. 可选：输出模块路径，方便调试（查看是否找到JavaFX模块）
-          Write-Host "JavaFX模块路径：$fxModulePath"
+          # 3. 关键调试：打印所有变量，确认无错误（日志中必须看到这些输出！）
+          Write-Host "===== 调试信息 ====="
+          Write-Host "1. Jar文件名：$JAR_FILE_NAME"
+          Write-Host "2. JavaFX模块路径：$fxModulePath"  # 这里不能是空的！
+          Write-Host "3. 输出目录：$OUTPUT_DIR"
+          Write-Host "===================="
 
           # 4. 创建输出目录
-          New-Item -ItemType Directory -Force -Path $OUTPUT_DIR
+          New-Item -ItemType Directory -Force -Path $OUTPUT_DIR | Out-Null
 
-          # 5. 执行jpackage（关键：补全--module-path行的续行符`）
-          jpackage `
-            --type exe `
-            --input ./target `
-            --output $OUTPUT_DIR `
-            --name "$APP_NAME" `
-            --main-jar "$JAR_FILE_NAME" `
-            --main-class "$MAIN_CLASS" `
-            --module-path "$fxModulePath" `  # 这里必须加`续行符（之前缺失导致错误）
-            --add-modules javafx.controls,javafx.fxml,javafx.base,javafx.graphics `  # 现在能正确识别为jpackage参数
-            --win-console  # 最后一行无续行符
+          # 5. 核心：jpackage 单行命令（无续行符，彻底避开解析问题）
+          jpackage --type exe --input ./target --output $OUTPUT_DIR --name "$APP_NAME" --main-jar "$JAR_FILE_NAME" --main-class "$MAIN_CLASS" --module-path "$fxModulePath" --add-modules javafx.controls,javafx.fxml,javafx.base,javafx.graphics --win-console
 
       - name: 上传Jar包产物
         uses: actions/upload-artifact@v4
