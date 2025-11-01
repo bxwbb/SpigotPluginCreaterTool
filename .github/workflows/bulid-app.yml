@@ -28,25 +28,38 @@ jobs:
 
       - name: 生成Windows 64位 EXE程序
         run: |
+          # 1. 基础变量（改用Windows反斜杠\，避免路径格式问题）
           $JAR_FILE_NAME = "SpigotPluginCreaterTool.jar"
-          $APP_JAR_PATH = "./target/$JAR_FILE_NAME"
+          $APP_JAR_PATH = ".\target\$JAR_FILE_NAME"  # 反斜杠\
           $APP_NAME = "我的世界spigot插件图形化开发工具"
           $MAIN_CLASS = "org.bxwbb.spigotplugincreatertool.HelloApplication"
-          $OUTPUT_DIR = "./target/exe-win64"
+          $OUTPUT_DIR = ".\target\exe-win64"  # 反斜杠\（关键修正）
 
+          # 2. 调试信息（保持不变，确认Jar存在）
           Write-Host "===== 调试信息 ====="
           if (Test-Path $APP_JAR_PATH) {
               Write-Host "✅ Jar文件存在：$APP_JAR_PATH"
-              Write-Host "Jar文件大小：$(Get-Item $APP_JAR_PATH).Length 字节"
+              $jarSize = (Get-Item $APP_JAR_PATH).Length  # 优化变量赋值，避免输出格式异常
+              Write-Host "Jar文件大小：$jarSize 字节"
           } else {
               Write-Error "❌ 找不到Jar文件：$APP_JAR_PATH"
               exit 1
           }
           Write-Host "===================="
 
+          # 3. 创建输出目录（保持不变）
           New-Item -ItemType Directory -Force -Path $OUTPUT_DIR | Out-Null
 
-          jpackage --type exe --input ./target --output $OUTPUT_DIR --name "$APP_NAME" --main-jar "$JAR_FILE_NAME" --main-class "$MAIN_CLASS" --win-console
+          # 4. 核心修正：jpackage命令（反斜杠路径 + 显式变量扩展）
+          jpackage `
+            --type exe `
+            --input .\target `  # 反斜杠\
+            --output $($OUTPUT_DIR) `  # 显式变量扩展：$($OUTPUT_DIR)
+            --name "$APP_NAME" `
+            --main-jar "$JAR_FILE_NAME" `
+            --main-class "$MAIN_CLASS" `
+            --win-console
+        shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
 
       - name: 上传Jar包产物
         uses: actions/upload-artifact@v4
