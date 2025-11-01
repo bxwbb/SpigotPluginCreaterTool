@@ -1,0 +1,72 @@
+name: 构建Jar包和Windows可执行程序
+
+# 触发条件：推送到main分支或创建Tag时执行
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  release:
+    types: [ published ]
+
+jobs:
+  build:
+    # 必须在Windows环境下构建EXE
+    runs-on: windows-latest
+
+    steps:
+      # 步骤1：拉取代码
+      - name: 拉取仓库代码
+        uses: actions/checkout@v4
+
+      # 步骤2：配置JDK（JavaFX需要JDK 11+，推荐17）
+      - name: 设置JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'  # 推荐使用Eclipse Temurin JDK
+          cache: maven  # 缓存Maven依赖，加速构建
+
+      # 步骤3：使用Maven构建可执行Jar包（假设你的项目用Maven管理）
+      - name: 构建可执行Jar包
+        run: mvn clean package -DskipTests
+        # 说明：
+        # 1. 确保你的pom.xml中配置了maven-assembly-plugin或shade-plugin，生成包含依赖的Jar
+        # 2. 若用Gradle，替换为：./gradlew clean build -x test
+
+      # 步骤4：使用jpackage生成Windows EXE
+      - name: 生成Windows EXE程序
+        run: |
+          # 定义变量（根据你的项目修改！）
+          JAR_FILE_NAME="SpigotPluginCreaterTool.jar"  # 例如：mc-plugin-tool-1.0.0.jar
+          APP_NAME="我的世界spigot插件图形化开发工具"          # EXE程序名称
+          MAIN_CLASS="org.bxwbb.spigotplugincreatertool.HelloApplication"  # 主类全路径（例如：com.mcplugintool.App）
+          OUTPUT_DIR="./target/exe"          # EXE输出目录
+          
+          # 创建输出目录
+          mkdir -p $OUTPUT_DIR
+          
+          # 执行jpackage生成EXE
+          jpackage \
+            --type exe \
+            --input ./target \  # Jar包所在目录（通常是target）
+            --output $OUTPUT_DIR \
+            --name "$APP_NAME" \
+            --main-jar "$JAR_FILE_NAME" \
+            --main-class "$MAIN_CLASS" \
+            --icon ./src/main/resources/icon.ico  # 可选：添加程序图标（支持.ico格式）
+            --win-console  # 保留控制台输出（调试用，发布时可去掉）
+
+      # 步骤5：上传Jar包作为Artifact
+      - name: 上传Jar包产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: mc-plugin-tool-jar
+          path: ./target/*.jar  # Jar包路径（根据实际打包目录调整）
+
+      # 步骤6：上传EXE程序作为Artifact
+      - name: 上传Windows EXE产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: mc-plugin-tool-windows
+          path: ./target/exe/*.exe  # EXE输出路径（与步骤4的OUTPUT_DIR对应）
