@@ -21,36 +21,34 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
-          cache: maven
-
-      # 关键修正：更换JavaFX SDK下载源（Oracle官方镜像）+ 优化命令
-      - name: 下载JavaFX SDK（Oracle官方源）
-        run: |
-          # 1. 用Oracle公开链接（稳定无权限问题），添加-UseBasicParsing避免PowerShell解析报错
-          Invoke-WebRequest `
-            -Uri "https://download.oracle.com/otn-pub/java/jfx/21.0.2/openjfx-21.0.2_windows-x64_bin.zip" `
-            -OutFile "javafx-sdk.zip" `
-            -UseBasicParsing `
-            -Headers @{"Cookie" = "oraclelicense=accept-securebackup-cookie"}  # 自动接受Oracle许可协议
-          
-          # 2. 解压（Oracle压缩包内部文件夹名是openjfx-21.0.2，不是javafx-sdk-21.0.2）
-          Expand-Archive -Path "javafx-sdk.zip" -DestinationPath "./javafx-sdk" -Force
+          cache: maven  # 缓存Maven依赖，确保JavaFX已下载
 
       - name: 构建可执行Jar包
         run: mvn clean package -DskipTests
+        # 关键：Maven会自动下载JavaFX依赖到 ~/.m2/repository/org/openjfx/
 
       - name: 生成Windows EXE程序
         run: |
-          $JAR_FILE_NAME = "SpigotPluginCreaterTool.jar"  # 务必核对实际Jar文件名（是否带版本号）
+          # 1. 基础变量（核对Jar文件名！）
+          $JAR_FILE_NAME = "SpigotPluginCreaterTool.jar"  # 实际文件名（如带版本号需修改）
           $APP_NAME = "我的世界spigot插件图形化开发工具"
           $MAIN_CLASS = "org.bxwbb.spigotplugincreatertool.HelloApplication"
           $OUTPUT_DIR = "./target/exe"
-          # 关键修正：匹配Oracle解压后的文件夹名（openjfx-21.0.2）
-          $FX_SDK_PATH = "./javafx-sdk/openjfx-21.0.2/lib"
 
+          # 2. 关键：从Maven仓库提取JavaFX模块路径（无需下载SDK！）
+          # Maven仓库中JavaFX的路径格式：~/.m2/repository/org/openjfx/[模块名]/[版本号]/
+          $fxGroupPath = "$HOME/.m2/repository/org/openjfx"
+          # 查找所有JavaFX模块的win-x64版本Jar所在目录（Windows环境需对应classifier）
+          $fxModulePaths = Get-ChildItem -Path $fxGroupPath -Recurse -Directory | 
+                           Where-Object { $_.FullName -match "win-x64" } | 
+                           Select-Object -ExpandProperty FullName
+          # 拼接成jpackage需要的模块路径（Windows下用分号分隔）
+          $fxModulePath = $fxModulePaths -join ";"
+
+          # 3. 创建输出目录
           New-Item -ItemType Directory -Force -Path $OUTPUT_DIR
 
-          # jpackage命令不变，确保模块路径正确
+          # 4. 执行jpackage（用Maven中的JavaFX模块）
           jpackage `
             --type exe `
             --input ./target `
@@ -58,8 +56,8 @@ jobs:
             --name "$APP_NAME" `
             --main-jar "$JAR_FILE_NAME" `
             --main-class "$MAIN_CLASS" `
-            --module-path "$FX_SDK_PATH" `
-            --add-modules javafx.controls,javafx.fxml,javafx.base,javafx.graphics `
+            --module-path "$fxModulePath" `  # 用Maven中的JavaFX模块路径
+            --add-modules javafx.controls,javafx.fxml,javafx.base,javafx.graphics `  # 匹配项目用到的模块
             --win-console
 
       - name: 上传Jar包产物
