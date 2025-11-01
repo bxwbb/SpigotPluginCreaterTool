@@ -6,7 +6,6 @@
     <!-- 输入Jar包路径（需与Maven生成的主Jar路径一致） -->
     <!-- 例如：若Maven生成的Jar为target/myapp-1.0.0.jar，则此处填./target/myapp-1.0.0.jar -->
     <jarPath>./target/SpigotPluginCreaterTool-0.0.1.jar</jarPath>
-    <mainClass>org.bxwbb.spigotplugincreatertool.HelloApplication</mainClass>
 
     <!-- 输出EXE路径（需与工作流中exe-win64目录一致） -->
     <outfile>./target/exe-win64/我的世界spigot插件图形化开发工具.exe</outfile>
@@ -19,7 +18,7 @@
     <jdkPreference>preferJre</jdkPreference>  <!-- 优先使用JRE -->
 
     <!-- 主类全路径（必须填写正确的包名+类名，如com.example.App） -->
-    <mainClass>你的主类全路径</mainClass>
+    <mainClass>org.bxwbb.spigotplugincreatertool.HelloApplication</mainClass>
 
     <!-- 可选配置：程序信息 -->
     <version>0.0.1</version>  <!-- 程序版本 -->
