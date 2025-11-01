@@ -92,27 +92,45 @@ jobs:
           }
         shell: pwsh
 
-      - name: 4. 安装Launch4j（定位工具路径）
+      - name: 4. 安装Launch4j并精准定位路径
         id: find_launch4j
         run: |
           echo "=== 安装Launch4j ==="
           choco install launch4j -y --verbose 2>&1 | Tee-Object -FilePath ./choco_install.log
-          
-          echo "`n=== 搜索launch4j.exe ==="
-          $launch4jPaths = Get-ChildItem -Path C:\ -Filter launch4j.exe `
-            -Recurse -ErrorAction SilentlyContinue | Select-Object FullName
-          
-          if ($launch4jPaths -and $launch4jPaths.Count -ge 1) {
-            $foundPath = $launch4jPaths[0].FullName
-            echo "✅ 找到Launch4j：$foundPath"
+
+          echo "`n=== 开始精准路径搜索 ==="
+          # 定义高概率路径列表（按优先级排序）
+          $priorityPaths = @(
+            "C:\Program Files\launch4j\launch4j.exe"       # Launch4j默认安装目录（64位）
+            "C:\Program Files (x86)\launch4j\launch4j.exe" # 32位兼容目录
+            "$env:chocolatey_bin_root\launch4j\launch4j.exe" # Chocolatey用户自定义目录
+            "C:\ProgramData\chocolatey\lib\launch4j\tools\launch4j.exe" # Chocolatey默认安装目录
+            "$env:LOCALAPPDATA\Programs\launch4j\launch4j.exe" # 用户本地目录
+          )
+
+          # 按优先级顺序检查路径是否存在
+          $foundPath = $priorityPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+          if ($foundPath) {
+            echo "✅ 快速找到Launch4j：$foundPath"
             echo "launch4j_path=$foundPath" >> $env:GITHUB_OUTPUT
-            # 验证工具版本
-            & $foundPath --version
+            & $foundPath --version # 验证工具可执行
           } else {
-            echo "❌ 错误：未找到launch4j.exe"
-            echo "Chocolatey安装日志片段："
-            Get-Content ./choco_install.log | Select-String -Pattern "install completed|error"
-            exit 1
+            echo "⚠️  未在预设路径找到，开始深度搜索（限制深度为2）"
+            $launch4jPaths = Get-ChildItem -Path C:\ -Filter launch4j.exe `
+              -Recurse -Depth 2 -ErrorAction SilentlyContinue | Select-Object FullName
+
+            if ($launch4jPaths) {
+              $foundPath = $launch4jPaths[0].FullName
+              echo "✅ 深度搜索找到：$foundPath"
+              echo "launch4j_path=$foundPath" >> $env:GITHUB_OUTPUT
+              & $foundPath --version
+            } else {
+              echo "❌ 错误：未找到launch4j.exe"
+              echo "Chocolatey安装日志片段："
+              Get-Content ./choco_install.log | Select-String -Pattern "install completed|error"
+              exit 1
+            }
           }
         shell: pwsh
 
