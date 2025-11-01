@@ -1,4 +1,4 @@
-name: 构建Jar包和Windows可执行程序（详细日志版）
+name: 构建Jar包和Windows可执行程序（修复env错误）
 
 on:
   push:
@@ -11,197 +11,182 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    # 修正：env变量独立定义，不互相嵌套引用
     env:
-      # 定义关键路径变量，避免重复编写（方便统一修改）
-      JAR_NAME: "SpigotPluginCreaterTool-0.0.1.jar"  # 你的主Jar包名称
-      JAR_PATH: "./target/${{ env.JAR_NAME }}"
-      EXE_DIR: "./target/exe-win64"
-      EXE_NAME: "我的世界spigot插件图形化开发工具.exe"
-      EXE_PATH: "${{ env.EXE_DIR }}/${{ env.EXE_NAME }}"
-      LAUNCH4J_CONFIG: "./launch4j.xml"
+      JAR_NAME: "SpigotPluginCreaterTool-0.0.1.jar"  # 主Jar包名称
+      JAR_FULL_PATH: "./target/SpigotPluginCreaterTool-0.0.1.jar"  # 完整Jar路径（不嵌套）
+      EXE_DIR: "./target/exe-win64"  # EXE输出目录
+      EXE_NAME: "我的世界spigot插件图形化开发工具.exe"  # EXE文件名
+      EXE_FULL_PATH: "./target/exe-win64/我的世界spigot插件图形化开发工具.exe"  # 完整EXE路径（不嵌套）
+      LAUNCH4J_CONFIG: "./launch4j.xml"  # 配置文件路径
 
     steps:
-      - name: 1. 拉取仓库代码（输出仓库信息）
+      - name: 1. 拉取仓库代码（验证目录结构）
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
       - run: |
-          echo "=== 仓库基础信息 ==="
-          echo "当前目录: $(Get-Location)"
-          echo "仓库文件列表: "
-          Get-ChildItem -Recurse | Select-Object FullName | Head -20  # 输出前20个文件，确认代码拉取完整
+          echo "=== 当前工作目录 ==="
+          pwd
+          echo "`n=== 仓库根目录文件列表 ==="
+          ls -la  # 输出根目录所有文件，确认launch4j.xml存在
+          echo "`n=== 工作流文件路径验证 ==="
+          if (Test-Path ".github/workflows/bulid-app.yml") {
+            echo "✅ 工作流文件存在"
+          } else {
+            echo "⚠️  注意：工作流文件路径可能拼写错误（bulid vs build）"
+          }
         shell: pwsh
 
-      - name: 2. 设置JDK 21（输出Java环境信息）
+      - name: 2. 设置JDK 21（验证环境）
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
           cache: maven
       - run: |
-          echo "=== Java环境信息 ==="
-          java -version  # 输出Java版本
-          javac -version  # 输出编译器版本
-          echo "Java安装路径: $env:JAVA_HOME"
-          echo "Maven版本: "
-          mvn -v  # 输出Maven版本
+          echo "=== Java/Maven环境信息 ==="
+          java -version
+          mvn -v
+          echo "`n=== JAVA_HOME ==="
+          echo $env:JAVA_HOME
         shell: pwsh
 
-      - name: 3. 构建Jar包（输出Maven详细日志+target目录完整列表）
+      - name: 3. 构建Jar包（捕获Maven日志+验证Jar）
         run: |
-          echo "=== 开始Maven构建（输出详细日志） ==="
-          # 加 -X 开启Maven调试日志，捕获依赖下载、打包细节
-          mvn clean package -DskipTests -U -X
+          echo "=== 开始Maven打包（详细日志） ==="
+          # 输出Maven执行过程，便于排查打包失败
+          mvn clean package -DskipTests -U 2>&1 | Tee-Object -FilePath ./maven_build.log
           
-          echo "`n=== Maven构建完成，检查target目录 ==="
-          echo "target目录完整文件列表: "
-          Get-ChildItem ./target -Recurse | Select-Object FullName  # 输出target下所有文件
+          echo "`n=== Maven打包日志（关键片段） ==="
+          cat ./maven_build.log | Select-String -Pattern "BUILD SUCCESS|BUILD FAILURE|Final Name"
           
-          echo "`n=== 验证主Jar包是否存在 ==="
-          if (Test-Path "${{ env.JAR_PATH }}") {
-            echo "✅ 主Jar包存在: ${{ env.JAR_PATH }}"
-            echo "Jar包大小: $(Get-Item "${{ env.JAR_PATH }}").Length 字节"
+          echo "`n=== 验证主Jar包 ==="
+          if (Test-Path "${{ env.JAR_FULL_PATH }}") {
+            echo "✅ 主Jar包存在：${{ env.JAR_FULL_PATH }}"
+            echo "Jar包大小：$(Get-Item "${{ env.JAR_FULL_PATH }}").Length 字节"
           } else {
-            echo "❌ 错误：主Jar包不存在！预期路径: ${{ env.JAR_PATH }}"
+            echo "❌ 错误：主Jar包不存在！预期路径：${{ env.JAR_FULL_PATH }}"
+            echo "当前target目录文件："
+            ls ./target
             exit 1
           }
         shell: pwsh
 
-      - name: 4. 安装Launch4j（输出安装日志+工具版本）
-        run: |
-          echo "=== 开始安装Launch4j ==="
-          # 加 --verbose 输出Chocolatey详细安装日志
-          choco install launch4j -y --verbose
-          
-          echo "`n=== 验证Launch4j安装 ==="
-          $launch4jPath = (Get-ChildItem -Path C:\ -Filter launch4j.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
-          if ($launch4jPath) {
-            echo "✅ 找到Launch4j: $launch4jPath"
-            echo "Launch4j版本: "
-            & $launch4jPath --version  # 输出工具版本
-            echo "launch4j_path=$launch4jPath" >> $env:GITHUB_OUTPUT
-          } else {
-            echo "❌ 错误：未找到launch4j.exe！"
-            exit 1
-          }
+      - name: 4. 安装Launch4j（定位工具路径）
         id: find_launch4j
-        shell: pwsh
-
-      - name: 5. 验证Launch4j配置文件（输出完整内容+语法检查）
         run: |
-          echo "=== 检查Launch4j配置文件 ==="
-          echo "配置文件路径: ${{ env.LAUNCH4J_CONFIG }}"
+          echo "=== 安装Launch4j ==="
+          choco install launch4j -y --verbose 2>&1 | Tee-Object -FilePath ./choco_install.log
           
-          if (-not (Test-Path "${{ env.LAUNCH4J_CONFIG }}")) {
-            echo "❌ 错误：配置文件不存在！"
+          echo "`n=== 搜索Launch4j.exe路径 ==="
+          $launch4jPaths = Get-ChildItem -Path C:\ -Filter launch4j.exe -Recurse -ErrorAction SilentlyContinue | Select-Object FullName
+          if ($launch4jPaths) {
+            $foundPath = $launch4jPaths[0].FullName
+            echo "✅ 找到Launch4j：$foundPath"
+            echo "launch4j_path=$foundPath" >> $env:GITHUB_OUTPUT
+            # 验证工具可执行
+            & $foundPath --version
+          } else {
+            echo "❌ 错误：未找到launch4j.exe"
+            echo "Chocolatey安装日志："
+            cat ./choco_install.log
             exit 1
           }
-          
-          echo "`n=== 配置文件完整内容（UTF-8编码） ==="
-          # 强制用UTF-8读取，避免中文乱码
-          Get-Content "${{ env.LAUNCH4J_CONFIG }}" -Encoding UTF8
-          
-          echo "`n=== 验证配置文件关键参数 ==="
-          $configContent = Get-Content "${{ env.LAUNCH4J_CONFIG }}" -Encoding UTF8 -Raw
-          # 检查jarPath是否与实际Jar包路径一致
-          if ($configContent -match '<jarPath>(.*?)</jarPath>') {
+        shell: pwsh
+
+      - name: 5. 验证Launch4j配置文件（语法+路径）
+        run: |
+          echo "=== 检查配置文件存在性 ==="
+          if (Test-Path "${{ env.LAUNCH4J_CONFIG }}") {
+            echo "✅ 配置文件存在：${{ env.LAUNCH4J_CONFIG }}"
+            echo "`n=== 配置文件内容（UTF-8） ==="
+            Get-Content "${{ env.LAUNCH4J_CONFIG }}" -Encoding UTF8
+          } else {
+            echo "❌ 错误：配置文件不存在！路径：${{ env.LAUNCH4J_CONFIG }}"
+            echo "当前目录文件："
+            ls
+            exit 1
+          }
+
+          echo "`n=== 验证配置关键参数 ==="
+          $config = Get-Content "${{ env.LAUNCH4J_CONFIG }}" -Encoding UTF8 -Raw
+          # 检查jarPath是否匹配实际Jar路径
+          if ($config -match '<jarPath>(.*?)</jarPath>') {
             $configJarPath = $matches[1].Trim()
-            echo "配置文件中jarPath: $configJarPath"
-            echo "实际主Jar包路径: ${{ env.JAR_PATH }}"
-            if ($configJarPath -ne "${{ env.JAR_PATH }}") {
-              echo "⚠️ 警告：配置文件jarPath与实际路径不匹配！"
+            echo "配置文件jarPath：$configJarPath"
+            echo "实际Jar路径：${{ env.JAR_FULL_PATH }}"
+            if ($configJarPath -ne "${{ env.JAR_FULL_PATH }}") {
+              echo "❌ 错误：jarPath不匹配！请修改配置文件"
+              exit 1
             }
           }
-          # 检查outfile是否与预期EXE路径一致
-          if ($configContent -match '<outfile>(.*?)</outfile>') {
+          # 检查outfile是否匹配预期EXE路径
+          if ($config -match '<outfile>(.*?)</outfile>') {
             $configExePath = $matches[1].Trim()
-            echo "配置文件中outfile: $configExePath"
-            echo "预期EXE路径: ${{ env.EXE_PATH }}"
-            if ($configExePath -ne "${{ env.EXE_PATH }}") {
-              echo "⚠️ 警告：配置文件outfile与预期路径不匹配！"
+            echo "配置文件outfile：$configExePath"
+            echo "预期EXE路径：${{ env.EXE_FULL_PATH }}"
+            if ($configExePath -ne "${{ env.EXE_FULL_PATH }}") {
+              echo "❌ 错误：outfile不匹配！请修改配置文件"
+              exit 1
             }
           }
-          # 检查mainClass是否重复（避免之前的错误）
-          $mainClassCount = ($configContent | Select-String '<mainClass>' -AllMatches).Matches.Count
+          # 检查mainClass是否唯一
+          $mainClassCount = ($config | Select-String '<mainClass>' -AllMatches).Matches.Count
           if ($mainClassCount -ne 1) {
-            echo "❌ 错误：mainClass标签数量异常（应为1个），实际: $mainClassCount"
+            echo "❌ 错误：mainClass标签数量异常（应为1个，实际$mainClassCount个）"
             exit 1
           }
         shell: pwsh
 
-      - name: 6. 生成EXE（捕获完整执行日志+错误流）
+      - name: 6. 生成Windows EXE（完整日志）
         run: |
-          echo "=== 开始生成EXE（捕获完整日志） ==="
+          echo "=== 准备生成EXE ==="
           $launch4jPath = "${{ steps.find_launch4j.outputs.launch4j_path }}"
-          echo "使用Launch4j路径: $launch4jPath"
-          echo "输出EXE路径: ${{ env.EXE_PATH }}"
-          
-          # 创建EXE目录（确保存在）
+          echo "Launch4j路径：$launch4jPath"
+          echo "输出目录：${{ env.EXE_DIR }}"
+          # 创建输出目录
           New-Item -ItemType Directory -Path "${{ env.EXE_DIR }}" -Force | Out-Null
           
-          # 关键：捕获Launch4j的标准输出和错误输出（2>&1 合并流）
-          echo "`n=== Launch4j执行日志开始 ==="
+          echo "`n=== 执行Launch4j（捕获完整日志） ==="
           & $launch4jPath "${{ env.LAUNCH4J_CONFIG }}" 2>&1 | Tee-Object -FilePath ./launch4j_exec.log
-          echo "`n=== Launch4j执行日志结束 ==="
           
-          # 检查执行结果
+          echo "`n=== Launch4j执行结果 ==="
           $exitCode = $LASTEXITCODE
-          echo "Launch4j退出码: $exitCode"  # 0=成功，非0=失败
-          
+          echo "退出码：$exitCode（0=成功，非0=失败）"
           if ($exitCode -ne 0) {
-            echo "❌ 错误：Launch4j生成EXE失败！退出码: $exitCode"
-            echo "查看详细执行日志: "
-            Get-Content ./launch4j_exec.log  # 再次输出日志，方便查看
+            echo "❌ 错误：EXE生成失败！详细日志："
+            cat ./launch4j_exec.log
             exit 1
           }
         shell: pwsh
 
-      - name: 7. 验证EXE生成（输出EXE详细信息）
+      - name: 7. 验证EXE并上传
         run: |
-          echo "=== 验证EXE文件 ==="
-          echo "EXE目录文件列表: "
-          Get-ChildItem "${{ env.EXE_DIR }}" | Select-Object Name, Length, LastWriteTime
-          
-          if (Test-Path "${{ env.EXE_PATH }}") {
-            echo "`n✅ EXE文件生成成功！"
-            echo "EXE路径: ${{ env.EXE_PATH }}"
-            echo "EXE大小: $(Get-Item "${{ env.EXE_PATH }}").Length 字节"
-            # 检查文件是否可执行
-            if ((Get-Item "${{ env.EXE_PATH }}").Attributes -match "Archive") {
-              echo "EXE文件属性正常（可执行）"
-            } else {
-              echo "⚠️ 警告：EXE文件属性异常"
-            }
+          echo "=== 验证EXE生成 ==="
+          if (Test-Path "${{ env.EXE_FULL_PATH }}") {
+            echo "✅ EXE生成成功：${{ env.EXE_FULL_PATH }}"
+            echo "EXE大小：$(Get-Item "${{ env.EXE_FULL_PATH }}").Length 字节"
           } else {
-            echo "`n❌ 错误：EXE文件未生成！预期路径: ${{ env.EXE_PATH }}"
-            # 输出可能的错误日志（如果存在）
-            if (Test-Path ./launch4j_exec.log) {
-              echo "`nLaunch4j执行日志: "
-              Get-Content ./launch4j_exec.log
-            }
+            echo "❌ 错误：EXE未生成！"
+            echo "EXE目录文件："
+            ls "${{ env.EXE_DIR }}"
+            echo "Launch4j日志："
+            cat ./launch4j_exec.log
             exit 1
           }
-        shell: pwsh
-
-      - name: 8. 上传产物（输出上传前检查）
-        run: |
-          echo "=== 上传前最终检查 ==="
-          echo "Jar包列表: "
-          Get-ChildItem ./target/*.jar | Select-Object FullName
-          echo "EXE文件: "
-          Get-ChildItem "${{ env.EXE_PATH }}" | Select-Object FullName
         shell: pwsh
 
       - name: 上传Jar包产物
         uses: actions/upload-artifact@v4
         with:
           name: mc-plugin-tool-jar
-          path: ${{ env.JAR_PATH }}
-          if-no-files-found: error  # 无文件时直接报错
+          path: ${{ env.JAR_FULL_PATH }}
+          if-no-files-found: error  # 无文件直接报错
 
       - name: 上传Windows EXE产物
         uses: actions/upload-artifact@v4
         with:
           name: mc-plugin-tool-windows
-          path: ${{ env.EXE_PATH }}
-          if-no-files-found: error  # 无文件时直接报错
+          path: ${{ env.EXE_FULL_PATH }}
+          if-no-files-found: error  # 无文件直接报错
