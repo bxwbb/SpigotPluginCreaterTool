@@ -16,59 +16,55 @@ jobs:
       - name: 拉取仓库代码
         uses: actions/checkout@v4
 
-      - name: 设置JDK 21
+      - name: 设置JDK 21（64位）
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
-          cache: maven
+          cache: maven  # 缓存Maven依赖，加速构建
 
       - name: 构建可执行Jar包（强制更新依赖）
         run: mvn clean package -DskipTests -U
+        # 注：Jar包生成路径由pom.xml控制，默认在target/，名称需与后续$JAR_FILE_NAME匹配
 
       - name: 生成Windows 64位 EXE程序
         run: |
-          # 1. 基础变量（改用Windows反斜杠\，避免路径格式问题）
-          $JAR_FILE_NAME = "SpigotPluginCreaterTool.jar"
-          $APP_JAR_PATH = ".\target\$JAR_FILE_NAME"  # 反斜杠\
+          # 1. 基础变量（改用正斜杠/，彻底避免PowerShell反斜杠转义问题）
+          $JAR_FILE_NAME = "SpigotPluginCreaterTool.jar"  # 与pom.xml生成的Jar名一致
+          $APP_JAR_PATH = "./target/$JAR_FILE_NAME"       # 正斜杠路径（PowerShell兼容）
           $APP_NAME = "我的世界spigot插件图形化开发工具"
           $MAIN_CLASS = "org.bxwbb.spigotplugincreatertool.HelloApplication"
-          $OUTPUT_DIR = ".\target\exe-win64"  # 反斜杠\（关键修正）
+          $OUTPUT_DIR = "./target/exe-win64"              # 正斜杠路径（与上传步骤匹配）
 
-          # 2. 调试信息（保持不变，确认Jar存在）
+          # 2. 调试验证：确认Jar包存在且路径正确
           Write-Host "===== 调试信息 ====="
           if (Test-Path $APP_JAR_PATH) {
               Write-Host "✅ Jar文件存在：$APP_JAR_PATH"
-              $jarSize = (Get-Item $APP_JAR_PATH).Length  # 优化变量赋值，避免输出格式异常
+              $jarSize = (Get-Item $APP_JAR_PATH).Length
               Write-Host "Jar文件大小：$jarSize 字节"
           } else {
-              Write-Error "❌ 找不到Jar文件：$APP_JAR_PATH"
+              Write-Error "❌ 找不到Jar文件！请检查："
+              Write-Error "1. Maven打包步骤是否成功（BUILD SUCCESS）"
+              Write-Error "2. Jar文件名是否与pom.xml生成的一致（如带版本号需修改\$JAR_FILE_NAME）"
               exit 1
           }
           Write-Host "===================="
 
-          # 3. 创建输出目录（保持不变）
+          # 3. 创建EXE输出目录（确保目录存在）
           New-Item -ItemType Directory -Force -Path $OUTPUT_DIR | Out-Null
 
-          # 4. 核心修正：jpackage命令（反斜杠路径 + 显式变量扩展）
-          jpackage `
-            --type exe `
-            --input .\target `  # 反斜杠\
-            --output $($OUTPUT_DIR) `  # 显式变量扩展：$($OUTPUT_DIR)
-            --name "$APP_NAME" `
-            --main-jar "$JAR_FILE_NAME" `
-            --main-class "$MAIN_CLASS" `
-            --win-console
+          # 4. 核心：单行jpackage命令（无续行符，彻底避免解析错误）
+          jpackage --type exe --input ./target --output $OUTPUT_DIR --name "$APP_NAME" --main-jar "$JAR_FILE_NAME" --main-class "$MAIN_CLASS" --win-console
         shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
 
       - name: 上传Jar包产物
         uses: actions/upload-artifact@v4
         with:
           name: mc-plugin-tool-jar
-          path: ./target/*.jar
+          path: ./target/*.jar  # 上传target下所有Jar（含主Jar和依赖Jar）
 
       - name: 上传Windows EXE产物
         uses: actions/upload-artifact@v4
         with:
           name: mc-plugin-tool-windows
-          path: ./target/exe-win64/*.exe  # 修正路径，与生成目录匹配
+          path: ./target/exe-win64/*.exe  # 与生成步骤的$OUTPUT_DIR完全匹配
