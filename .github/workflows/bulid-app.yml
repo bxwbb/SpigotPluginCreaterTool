@@ -22,37 +22,35 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: maven
-          # 关键：指定JavaFX依赖仓库（解决Maven下载JavaFX包的问题）
-          server-id: central
-          settings-path: ${{ github.workspace }}
 
-      # 可选：提前下载JavaFX SDK（确保jpackage能找到模块）
-      - name: 下载JavaFX SDK
+      # 关键修正：更换JavaFX SDK下载源（Oracle官方镜像）+ 优化命令
+      - name: 下载JavaFX SDK（Oracle官方源）
         run: |
-          # 下载与JDK 21匹配的JavaFX 21 SDK（Windows版）
-          Invoke-WebRequest -Uri "https://download2.gluonhq.com/openjfx/21.0.2/openjfx-21.0.2_windows-x64_bin.zip" -OutFile "javafx-sdk.zip"
-          # 解压到指定目录
+          # 1. 用Oracle公开链接（稳定无权限问题），添加-UseBasicParsing避免PowerShell解析报错
+          Invoke-WebRequest `
+            -Uri "https://download.oracle.com/otn-pub/java/jfx/21.0.2/openjfx-21.0.2_windows-x64_bin.zip" `
+            -OutFile "javafx-sdk.zip" `
+            -UseBasicParsing `
+            -Headers @{"Cookie" = "oraclelicense=accept-securebackup-cookie"}  # 自动接受Oracle许可协议
+          
+          # 2. 解压（Oracle压缩包内部文件夹名是openjfx-21.0.2，不是javafx-sdk-21.0.2）
           Expand-Archive -Path "javafx-sdk.zip" -DestinationPath "./javafx-sdk" -Force
 
       - name: 构建可执行Jar包
         run: mvn clean package -DskipTests
-        env:
-          # 配置Maven拉取JavaFX依赖（若pom.xml用了Gluon仓库）
-          MAVEN_OPTS: "-Dmaven.repo.local=${{ github.workspace }}/.m2/repository"
 
       - name: 生成Windows EXE程序
         run: |
-          # 1. 变量定义（务必检查Jar文件名是否带版本号！）
-          $JAR_FILE_NAME = "SpigotPluginCreaterTool.jar"  # 若实际是SpigotPluginCreaterTool-1.0-SNAPSHOT.jar，需修改
+          $JAR_FILE_NAME = "SpigotPluginCreaterTool.jar"  # 务必核对实际Jar文件名（是否带版本号）
           $APP_NAME = "我的世界spigot插件图形化开发工具"
           $MAIN_CLASS = "org.bxwbb.spigotplugincreatertool.HelloApplication"
           $OUTPUT_DIR = "./target/exe"
-          $FX_SDK_PATH = "./javafx-sdk/javafx-sdk-21.0.2/lib"  # 对应上面解压的JavaFX SDK路径
+          # 关键修正：匹配Oracle解压后的文件夹名（openjfx-21.0.2）
+          $FX_SDK_PATH = "./javafx-sdk/openjfx-21.0.2/lib"
 
-          # 2. 创建输出目录
           New-Item -ItemType Directory -Force -Path $OUTPUT_DIR
 
-          # 3. 执行jpackage（核心修正：注释行无续行符，添加JavaFX模块配置）
+          # jpackage命令不变，确保模块路径正确
           jpackage `
             --type exe `
             --input ./target `
@@ -60,9 +58,9 @@ jobs:
             --name "$APP_NAME" `
             --main-jar "$JAR_FILE_NAME" `
             --main-class "$MAIN_CLASS" `
-            --module-path "$FX_SDK_PATH" `  # 告诉jpackageJavaFX模块位置
-            --add-modules javafx.controls,javafx.fxml,javafx.base,javafx.graphics `  # 必加：JavaFX核心模块
-            --win-console  # 最后一行无续行符
+            --module-path "$FX_SDK_PATH" `
+            --add-modules javafx.controls,javafx.fxml,javafx.base,javafx.graphics `
+            --win-console
 
       - name: 上传Jar包产物
         uses: actions/upload-artifact@v4
