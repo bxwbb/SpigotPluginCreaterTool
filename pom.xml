@@ -180,7 +180,7 @@
             <id>github</id> <!-- 需与 settings.xml 中 server.id 一致 -->
             <name>GitHub Packages</name>
             <!-- 格式：https://maven.pkg.github.com/用户名/仓库名 -->
-            <url>https://maven.pkg.github.com/BXWBB/SpigotPluginCreaterTool</url>
+            <url>https://maven.pkg.github.com/bxwbb/SpigotPluginCreaterTool</url>
         </repository>
     </distributionManagement>
 
