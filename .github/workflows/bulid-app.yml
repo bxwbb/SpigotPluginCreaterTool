@@ -5,13 +5,12 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:  # 允许手动触发
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: windows-latest  # 生成EXE需要Windows环境
+    runs-on: windows-latest
     env:
-      # 配置JavaFX模块（根据你的项目依赖修改）
       JAVAFX_MODULES: "javafx.controls,javafx.fxml,javafx.base,javafx.graphics"
 
     steps:
@@ -21,23 +20,15 @@ jobs:
         uses: actions/setup-java@v4
         with:
           java-version: '21'
-          distribution: 'temurin'  # JDK 21推荐使用Temurin分发版
-          cache: maven  # 缓存Maven依赖加速构建
-          # 自动配置JAVA_HOME
-          java-package: jdk
+          distribution: 'temurin'
+          cache: maven
 
-      - name: Build with Maven (生成可执行JAR)
-        run: |
-          mvn -B clean package 
-          # 确保Maven打包时包含所有依赖（需配合pom.xml中的shade插件）
-        env:
-          # 传递JavaFX模块信息到Maven
-          JAVAFX_MODULES: ${{ env.JAVAFX_MODULES }}
+      - name: Build with Maven
+        run: mvn -B clean package
 
       - name: 定位生成的JAR文件
         id: find_jar
         run: |
-          # 查找target目录下的主JAR（排除sources和javadoc）
           $jarFile = Get-ChildItem -Path target -Filter *.jar | 
                     Where-Object { $_.Name -notmatch "sources|javadoc" } | 
                     Select-Object -First 1
@@ -48,7 +39,7 @@ jobs:
           echo "jar_name=$($jarFile.Name)" >> $env:GITHUB_OUTPUT
           echo "app_name=$($jarFile.Name -replace '\.jar$', '')" >> $env:GITHUB_OUTPUT
 
-      - name: 使用jpackage生成EXE（JDK 21）
+      - name: 使用jpackage生成EXE（修复PowerShell语法）
         run: |
           $appName = "${{ steps.find_jar.outputs.app_name }}"
           $jarName = "${{ steps.find_jar.outputs.jar_name }}"
@@ -56,18 +47,18 @@ jobs:
           # 创建输出目录
           New-Item -ItemType Directory -Path target/exe-dist -Force
           
-          # JDK 21的jpackage增强了模块处理，需显式指定JavaFX模块
+          # 关键修复：确保反引号`是行尾最后一个字符，且变量用引号包裹
           jpackage `
             --type exe `
-            --input target `  # JAR文件所在目录
-            --main-jar $jarName `
-            --name $appName `
-            --dest target/exe-dist `
-            --module-path "${env:JAVA_HOME}/jmods" `  # JDK 21的模块路径
-            --add-modules ${{ env.JAVAFX_MODULES }} `  # 引入JavaFX模块
-            --win-console `  # 调试阶段保留控制台（发布时可改为--win-no-console）
-            --app-version "1.0.0" `  # 应用版本号
-            --copyright "Your Copyright"  # 版权信息
+            --input "target" `  # 路径用引号包裹，防止空格问题
+            --main-jar "$jarName" `  # 变量用引号包裹
+            --name "$appName" `
+            --dest "target/exe-dist" `
+            --module-path "${env:JAVA_HOME}/jmods" `
+            --add-modules ${{ env.JAVAFX_MODULES }} `
+            --win-console `
+            --app-version "1.0.0" `
+            --copyright "Your Copyright"
             # 如需图标添加：--win-icon "src/main/resources/icon.ico"
 
       - name: 上传JAR产物
@@ -75,7 +66,7 @@ jobs:
         with:
           name: ${{ steps.find_jar.outputs.app_name }}-jar
           path: ${{ steps.find_jar.outputs.jar_path }}
-          retention-days: 14  # 保留14天
+          retention-days: 14
 
       - name: 上传EXE产物
         uses: actions/upload-artifact@v4
