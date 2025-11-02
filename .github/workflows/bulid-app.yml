@@ -39,26 +39,35 @@ jobs:
           echo "jar_name=$($jarFile.Name)" >> $env:GITHUB_OUTPUT
           echo "app_name=$($jarFile.Name -replace '\.jar$', '')" >> $env:GITHUB_OUTPUT
 
-      - name: 使用jpackage生成EXE（添加主类指定）
+      - name: 使用jpackage生成EXE（添加JavaFX模块路径）
         run: |
           $appName = "${{ steps.find_jar.outputs.app_name }}"
           $jarName = "${{ steps.find_jar.outputs.jar_name }}"
+          $mainClass = "org.bxwbb.spigotplugincreatertool.HelloApplication"  # 替换为你的主类
 
           # 创建输出目录
           New-Item -ItemType Directory -Path target/exe-dist -Force
 
-          # 添加 --main-class 显式指定主类（替换为你的实际主类）
+          # 定位JavaFX jmods路径（Maven仓库中）
+          $javafxVersion = "21.0.2"
+          $javafxBaseJmodPath = "$env:USERPROFILE\.m2\repository\org\openjfx\javafx-base\$javafxVersion\javafx-base-$javafxVersion-win.jmod"
+          $javafxJmodsDir = Split-Path $javafxBaseJmodPath -Parent  # 获取jmods所在目录
+
+          # 合并JDK模块路径和JavaFX模块路径（Windows用分号分隔）
+          $modulePath = "${env:JAVA_HOME}\jmods;$javafxJmodsDir"
+
+          # 执行jpackage，指定正确的模块路径
           jpackage `
             --type exe `
             --input "target" `
             --main-jar "$jarName" `
-            --main-class "org.bxwbb.spigotplugincreatertool.HelloApplication" `
+            --main-class "$mainClass" `
             --name "$appName" `
             --dest "target/exe-dist" `
-            --module-path "${env:JAVA_HOME}/jmods" `
+            --module-path "$modulePath" `  # 关键：包含JDK和JavaFX模块
             --add-modules ${{ env.JAVAFX_MODULES }} `
             --win-console `
-            --app-version "0.0.1" `
+            --app-version "1.0.0" `
             --copyright "BXWBB"
 
       - name: 上传JAR产物
