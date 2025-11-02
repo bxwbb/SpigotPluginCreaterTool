@@ -173,9 +173,20 @@
         </dependency>
     </dependencies>
 
+    <!-- 部署仓库配置（关键：解决 deploy 失败问题） -->
+    <distributionManagement>
+        <!-- 部署到 GitHub Packages（替换为你的 GitHub 信息） -->
+        <repository>
+            <id>github</id> <!-- 需与 settings.xml 中 server.id 一致 -->
+            <name>GitHub Packages</name>
+            <!-- 格式：https://maven.pkg.github.com/用户名/仓库名 -->
+            <url>https://maven.pkg.github.com/你的GitHub用户名/SpigotPluginCreaterTool</url>
+        </repository>
+    </distributionManagement>
+
     <build>
         <plugins>
-            <!-- 1. 编译插件（确保Java版本匹配） -->
+            <!-- 编译插件（指定Java版本） -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -186,7 +197,7 @@
                 </configuration>
             </plugin>
 
-            <!-- 2. 修正后的 maven-assembly-plugin 配置 -->
+            <!-- 打包插件（生成可执行jar，包含依赖） -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
@@ -199,11 +210,10 @@
                         </goals>
                         <configuration>
                             <transformers>
-                                <!-- 关键：指定主类（替换为你的实际主类全限定名） -->
+                                <!-- 指定主类（确保与你的实际主类全限定名一致） -->
                                 <transformer
                                         implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>org.bxwbb.spigotplugincreatertool.HelloApplication
-                                    </mainClass> <!-- 例如：com.example.SpigotPluginCreator -->
+                                    <mainClass>org.bxwbb.spigotplugincreatertool.HelloApplication</mainClass>
                                 </transformer>
                             </transformers>
                         </configuration>
