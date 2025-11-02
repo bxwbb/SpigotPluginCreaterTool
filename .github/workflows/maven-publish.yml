@@ -9,26 +9,34 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
+      packages: write  # 必需：允许向 GitHub Packages 写入
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4  # 拉取代码
+
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
-          server-id: github # Value of the distributionManagement/repository/id field of the pom.xml
-          settings-path: ${{ github.workspace }} # location for the settings.xml file
+          server-id: github  # 与 pom.xml 中 distributionManagement/repository/id 一致
+          settings-path: ${{ github.workspace }}  # 自动生成包含 GITHUB_TOKEN 的 settings.xml
+          # 自动配置认证信息（无需手动写 settings.xml）
 
-      - name: Build with Maven
-        run: mvn -B package --file pom.xml
+      - name: 构建项目（编译+打包）
+        run: mvn -B clean package --file pom.xml  # 清理并打包，生成 Jar 包
 
-      - name: Publish to GitHub Packages Apache Maven
-        run: mvn deploy -s $GITHUB_WORKSPACE/settings.xml
+      - name: 部署到 GitHub Packages
+        run: mvn -B deploy --file pom.xml  # 部署到 GitHub 私有仓库
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # 使用 GitHub 内置令牌（自动注入，无需手动配置）
+
+      - name: 上传 Jar 包作为 Artifact（方便下载）
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpigotPluginCreaterTool-Jar  #  artifacts 名称
+          path: target/*.jar  # 上传 target 目录下所有 Jar 包（包含构建好的产物）
+          if-no-files-found: error  # 若未找到 Jar 包则报错
