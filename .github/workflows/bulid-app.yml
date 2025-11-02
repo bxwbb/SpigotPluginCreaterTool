@@ -52,7 +52,7 @@ jobs:
             --type exe `
             --input "target" `
             --main-jar "$jarName" `
-            --main-class "org.bxwbb.spigotplugincreatertool.HelloApplication" `  # 与pom.xml中的主类一致
+            --main-class "org.bxwbb.spigotplugincreatertool.HelloApplication" `
             --name "$appName" `
             --dest "target/exe-dist" `
             --module-path "${env:JAVA_HOME}/jmods" `
