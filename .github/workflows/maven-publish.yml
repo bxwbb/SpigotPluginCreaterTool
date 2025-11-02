@@ -29,11 +29,6 @@ jobs:
       - name: 构建项目（编译+打包）
         run: mvn -B clean package --file pom.xml  # 清理并打包，生成 Jar 包
 
-      - name: 部署到 GitHub Packages
-        run: mvn -B deploy --file pom.xml  # 部署到 GitHub 私有仓库
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # 使用 GitHub 内置令牌（自动注入，无需手动配置）
-
       - name: 上传 Jar 包作为 Artifact（方便下载）
         uses: actions/upload-artifact@v4
         with:
