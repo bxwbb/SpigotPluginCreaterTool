@@ -1,5 +1,4 @@
-name: Maven Package
-
+name: Maven Build and Package
 on:
   push:
     branches: [ main, master ]
@@ -11,8 +10,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      packages: write  # 必需：允许向 GitHub Packages 写入
+      contents: read  # 仅需读取代码权限
 
     steps:
       - uses: actions/checkout@v4  # 拉取代码
@@ -22,16 +20,24 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
-          server-id: github  # 与 pom.xml 中 distributionManagement/repository/id 一致
-          settings-path: ${{ github.workspace }}  # 自动生成包含 GITHUB_TOKEN 的 settings.xml
-          # 自动配置认证信息（无需手动写 settings.xml）
 
-      - name: 构建项目（编译+打包）
-        run: mvn -B clean package --file pom.xml  # 清理并打包，生成 Jar 包
+      - name: 构建 Jar 包（编译+打包）
+        run: mvn -B clean package --file pom.xml  # 生成 target 下的所有 Jar 包
 
-      - name: 上传 Jar 包作为 Artifact（方便下载）
+      # 步骤1：上传「所有Jar包的压缩包」，名称加后缀 -AllJars-ZIP
+      - name: 上传所有Jar压缩包（带后缀）
         uses: actions/upload-artifact@v4
         with:
-          name: SpigotPluginCreaterTool-Jar  #  artifacts 名称
-          path: target/*.jar  # 上传 target 目录下所有 Jar 包（包含构建好的产物）
-          if-no-files-found: error  # 若未找到 Jar 包则报错
+          name: SpigotPluginCreaterTool-AllJars-ZIP  # 压缩包名称带后缀，明确区分
+          path: target/*.jar  # 把 target 下所有 Jar 打包成 ZIP
+          if-no-files-found: error
+
+      # 步骤2：上传「单个可执行Jar包」（需替换为你实际的Jar包名称）
+      - name: 上传单个可执行Jar包
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpigotPluginCreaterTool-Executable  # 单个Jar包的名称
+          # ！！替换为你 target 目录下实际的可执行Jar包名称（如带依赖的shaded Jar）
+          # 示例：target/SpigotPluginCreaterTool-0.0.2.jar（版本号需和pom.xml一致）
+          path: target/SpigotPluginCreaterTool-0.0.2.jar
+          if-no-files-found: error
