@@ -39,7 +39,7 @@ jobs:
           echo "jar_name=$($jarFile.Name)" >> $env:GITHUB_OUTPUT
           echo "app_name=$($jarFile.Name -replace '\.jar$', '')" >> $env:GITHUB_OUTPUT
 
-      - name: 使用jpackage生成EXE（修复PowerShell语法）
+      - name: 使用jpackage生成EXE（彻底修复续行符问题）
         run: |
           $appName = "${{ steps.find_jar.outputs.app_name }}"
           $jarName = "${{ steps.find_jar.outputs.jar_name }}"
@@ -47,11 +47,11 @@ jobs:
           # 创建输出目录
           New-Item -ItemType Directory -Path target/exe-dist -Force
           
-          # 关键修复：确保反引号`是行尾最后一个字符，且变量用引号包裹
+          # 关键修复：反引号`必须是行尾最后一个字符，后面不能有任何内容（包括空格和注释）
           jpackage `
             --type exe `
-            --input "target" `  # 路径用引号包裹，防止空格问题
-            --main-jar "$jarName" `  # 变量用引号包裹
+            --input "target" `
+            --main-jar "$jarName" `
             --name "$appName" `
             --dest "target/exe-dist" `
             --module-path "${env:JAVA_HOME}/jmods" `
@@ -59,7 +59,7 @@ jobs:
             --win-console `
             --app-version "1.0.0" `
             --copyright "Your Copyright"
-            # 如需图标添加：--win-icon "src/main/resources/icon.ico"
+          # 注意：所有参数行的反引号后面已经删除了注释，确保反引号是行尾最后一个字符
 
       - name: 上传JAR产物
         uses: actions/upload-artifact@v4
