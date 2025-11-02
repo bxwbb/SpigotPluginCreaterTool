@@ -17,6 +17,10 @@
 
     <repositories>
         <repository>
+            <id>openjfx</id>
+            <url>https://maven.openjfx.io</url>
+        </repository>
+        <repository>
             <id>gluon-releases</id>
             <url>https://nexus.gluonhq.com/nexus/content/repositories/releases/</url>
             <releases>
@@ -54,42 +58,6 @@
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-media</artifactId>
             <version>${javafx.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.openjfx</groupId>
-            <artifactId>javafx-controls</artifactId>
-            <version>${javafx.version}</version>
-            <classifier>win</classifier> <!-- Windows平台 -->
-            <type>jmod</type>
-        </dependency>
-        <dependency>
-            <groupId>org.openjfx</groupId>
-            <artifactId>javafx-fxml</artifactId>
-            <version>${javafx.version}</version>
-            <classifier>win</classifier> <!-- Windows平台 -->
-            <type>jmod</type>
-        </dependency>
-        <dependency>
-            <groupId>org.openjfx</groupId>
-            <artifactId>javafx-web</artifactId>
-            <version>${javafx.version}</version>
-            <classifier>win</classifier> <!-- Windows平台 -->
-            <type>jmod</type>
-        </dependency>
-        <dependency>
-            <groupId>org.openjfx</groupId>
-            <artifactId>javafx-swing</artifactId>
-            <version>${javafx.version}</version>
-            <classifier>win</classifier> <!-- Windows平台 -->
-            <type>jmod</type>
-        </dependency>
-        <dependency>
-            <groupId>org.openjfx</groupId>
-            <artifactId>javafx-media</artifactId>
-            <version>${javafx.version}</version>
-            <classifier>win</classifier> <!-- Windows平台 -->
-            <type>jmod</type>
         </dependency>
 
         <!-- 第三方UI组件 -->
@@ -232,8 +200,10 @@
                         <configuration>
                             <transformers>
                                 <!-- 关键：指定主类（替换为你的实际主类全限定名） -->
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>org.bxwbb.spigotplugincreatertool.HelloApplication</mainClass> <!-- 例如：com.example.SpigotPluginCreator -->
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>org.bxwbb.spigotplugincreatertool.HelloApplication
+                                    </mainClass> <!-- 例如：com.example.SpigotPluginCreator -->
                                 </transformer>
                             </transformers>
                         </configuration>
