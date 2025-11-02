@@ -1,4 +1,4 @@
-name: Maven Build and Package
+name: Maven Build + JWrapper EXE
 on:
   push:
     branches: [ main, master ]
@@ -7,37 +7,59 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  build-and-package:
+    runs-on: ubuntu-latest # JWrapper 可在 Linux 下跨平台打包 Windows exe
     permissions:
-      contents: read  # 仅需读取代码权限
+      contents: read
 
     steps:
-      - uses: actions/checkout@v4  # 拉取代码
+      - uses: actions/checkout@v4
 
+      # 步骤1：安装 Java 21（构建 Jar 包用）
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: 构建 Jar 包（编译+打包）
-        run: mvn -B clean package --file pom.xml  # 生成 target 下的所有 Jar 包
+      # 步骤2：构建可执行 Jar 包
+      - name: Build Jar with Maven
+        run: mvn -B clean package --file pom.xml
 
-      # 步骤1：上传「所有Jar包的压缩包」，名称加后缀 -AllJars-ZIP
-      - name: 上传所有Jar压缩包（带后缀）
+      # 步骤3：下载 JWrapper 工具
+      - name: Download JWrapper
+        run: wget https://www.jwrapper.com/download/JWrapper.jar -O ./JWrapper.jar
+
+      # 步骤4：准备 JWrapper 配置文件（直接在工作流中生成，避免本地文件上传）
+      - name: Create JWrapper config.xml
+        run: |
+          cat > ./config.xml << EOF
+          <JWrapper>
+              <AppName>SpigotPluginCreaterTool</AppName>
+              <AppVersion>0.0.2</AppVersion>
+              <MainClass>org.bxwbb.spigotplugincreatertool.HelloApplication</MainClass>
+              <IncludeJRE>true</IncludeJRE>
+              <JREVersion>21</JREVersion>
+              <JREDownloadURL>https://javadl.oracle.com/webapps/download/AutoDL?BundleId=249194_424b9da4b48848379167015dcc250d8d</JREDownloadURL>
+              <JarPath>./target/SpigotPluginCreaterTool-0.0.2.jar</JarPath>
+              <Windows>
+                  <EXEName>SpigotPluginCreaterTool.exe</EXEName>
+                  <AdminRequired>false</AdminRequired>
+              </Windows>
+              <OutputDir>./jwrapper-output</OutputDir>
+          </JWrapper>
+          EOF
+
+      # 步骤5：用 JWrapper 打包 exe
+      - name: Package EXE with JWrapper
+        run: java -jar JWrapper.jar ./config.xml
+
+      # 步骤6：上传所有产物（Jar压缩包、单个Jar、exe）
+      - name: Upload All Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: SpigotPluginCreaterTool-AllJars-ZIP  # 压缩包名称带后缀，明确区分
-          path: target/*.jar  # 把 target 下所有 Jar 打包成 ZIP
-          if-no-files-found: error
-
-      # 步骤2：上传「单个可执行Jar包」（需替换为你实际的Jar包名称）
-      - name: 上传单个可执行Jar包
-        uses: actions/upload-artifact@v4
-        with:
-          name: SpigotPluginCreaterTool-Executable  # 单个Jar包的名称
-          # ！！替换为你 target 目录下实际的可执行Jar包名称（如带依赖的shaded Jar）
-          # 示例：target/SpigotPluginCreaterTool-0.0.2.jar（版本号需和pom.xml一致）
-          path: target/SpigotPluginCreaterTool-0.0.2.jar
+          name: SpigotPluginCreaterTool-All-Products
+          path: |
+            ./target/*.jar                # 所有 Jar 包
+            ./jwrapper-output/Windows/*.exe # 生成的 exe 文件
           if-no-files-found: error

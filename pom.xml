@@ -197,11 +197,10 @@
                 </configuration>
             </plugin>
 
-            <!-- 打包插件（生成可执行jar，包含依赖） -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.5.0</version>
+                <version>3.2.2</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -210,9 +209,7 @@
                         </goals>
                         <configuration>
                             <transformers>
-                                <!-- 指定主类（确保与你的实际主类全限定名一致） -->
-                                <transformer
-                                        implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>org.bxwbb.spigotplugincreatertool.HelloApplication</mainClass>
                                 </transformer>
                             </transformers>
