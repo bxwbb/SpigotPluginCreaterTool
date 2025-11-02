@@ -1,0 +1,3 @@
+2025-11-01 18:48:01.436 [JavaFX Application Thread] INFO  o.b.s.HelloApplication - 工具开始启动并加载...
+2025-11-01 18:48:01.638 [ForkJoinPool.commonPool-worker-1] INFO  o.b.s.HelloApplication - 加载第1/1项-扫描类
+2025-11-01 18:48:01.788 [ForkJoinPool.commonPool-worker-1] INFO  o.b.s.HelloApplication - 初始化完成，耗时: 149ms
