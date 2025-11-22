@@ -702,4 +702,16 @@ public class HelloApplication extends Application {
         HelloApplication.textField.requestFocus();
     }
 
+    @Override
+    public void init() throws Exception {
+        super.init();
+        logger.info("执行初始化...");
+    }
+
+    @Override
+    public void stop() throws Exception {
+        super.stop();
+        logger.info("执行停止...");
+    }
+
 }

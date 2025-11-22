@@ -2,6 +2,7 @@ package org.bxwbb.spigotplugincreatertool.windowLabel.CodeFramework;
 
 import javafx.scene.Group;
 import javafx.scene.paint.Color;
+import javafx.scene.paint.Paint;
 import javafx.scene.shape.Line;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
@@ -11,27 +12,31 @@ import javafx.scene.text.TextFlow;
 import org.bxwbb.spigotplugincreatertool.HelloApplication;
 import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.Node;
 import org.bxwbb.spigotplugincreatertool.windowLabel.BaseLabel;
-import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 public class CodeFramework extends BaseLabel {
 
     // 默认代码颜色
-    public static Color CODE_COLOR = Color.rgb(230,230,230);
+    public static Color CODE_COLOR = Color.rgb(210, 210, 210);
     // 关键字颜色
     public static Color KEY_WORD_COLOR = Color.rgb(255, 124, 222);
     // 字符串颜色
     public static Color STRING_COLOR = Color.rgb(53, 173, 94);
     // 注释颜色
-    public static Color COMMENT_COLOR = Color.rgb(128,128,128);
+    public static Color COMMENT_COLOR = Color.rgb(128, 128, 128);
     // 注解颜色
     public static Color ANNOTATION_COLOR = Color.rgb(230, 230, 0);
+    // 数字颜色
+    public static Color NUMBER_COLOR = Color.rgb(228, 94, 11);
+    // 错误主色：深红（醒目但不刺眼，避免纯红的刺眼感，符合错误提示语义）
+    public static Color ERROR_COLOR = Color.rgb(220, 38, 38); // 十六进制 #DC2626
+    // 光标颜色
+    public static Paint CURSOR_COLOR = Color.rgb(230, 230, 230);
 
-    public static Font codeFont = Font.loadFont(HelloApplication.class.getResourceAsStream(
-            "/org/bxwbb/spigotplugincreatertool/font/Consolas.ttf"), 14  // 默认字号（可在使用时覆盖）
+    public static Font codeFont = Font.font(
+            "Consolas",
+            14
     );
     public static Font lineFont = Font.font(
             "Consolas",
@@ -50,116 +55,18 @@ public class CodeFramework extends BaseLabel {
     private final Rectangle background;
     // 分割行号和正文的线
     private final Line lineTextLine;
-    // 生成一个包含JAVA中所有关键字的列表
-    public static List<String> KEYWORDS = Arrays.asList("private", "protected", "public", "default", "abstract", "class", "extends", "final", "implements", "interface", "native", "new", "static", "strictfp", "synchronized", "transient", "volatile", "break", "case", "continue", "do", "else", "for", "if", "instanceof", "return", "switch", "while", "assert", "catch", "finally", "throw", "throws", "try", "import", "package", "byte", "char", "double", "float", "int", "long", "short", "super", "this", "void", "goto", "const");
+    private final TokenFixer tokenFixer;
+    private final List<TokenShader> tokenShaders;
+    // 光标
+    private final Rectangle cursor;
 
-    public static List<String> splitIncludingSpaces(String s) {
-        List<String> result = new ArrayList<>();
-        if (s == null || s.isEmpty()) {
-            return result;
-        }
-
-        StringBuilder current = new StringBuilder();
-        boolean inDoubleQuotes = false; // 是否在双引号字符串内
-        boolean isEscaped = false;      // 当前字符是否被转义
-        boolean isSpace = false;        // 当前片段是否为空格（仅双引号外有效）
-        boolean inComment = false;      // 是否进入//注释模式
-
-        for (int i = 0; i < s.length(); i++) {
-            // 注释模式：所有内容作为独立元素，不再分割
-            if (inComment) {
-                current.append(s.charAt(i));
-                continue;
-            }
-
-            char c = s.charAt(i);
-
-            // 处理转义（仅非注释、非字符串内有效）
-            if (isEscaped) {
-                current.append(c);
-                isEscaped = false;
-                continue;
-            }
-
-            // 处理反斜杠（标记转义）
-            if (c == '\\') {
-                current.append(c);
-                isEscaped = true;
-                continue;
-            }
-
-            // 处理双引号（重点：起始引号前的内容先加入列表）
-            if (c == '"') {
-                // 仅处理非转义的双引号
-                // 情况1：遇到起始双引号（从非字符串到字符串）
-                if (!inDoubleQuotes) {
-                    // 先将引号前的内容加入列表（若有）
-                    if (!current.isEmpty()) {
-                        result.add(current.toString());
-                        current = new StringBuilder(); // 重置，准备收集字符串
-                    }
-                    // 开始收集字符串（加入起始双引号）
-                    current.append(c);
-                    inDoubleQuotes = true; // 标记进入字符串
-                }
-                // 情况2：遇到结束双引号（从字符串到非字符串）
-                else {
-                    current.append(c); // 加入结束双引号
-                    // 整个字符串完成，加入列表
-                    result.add(current.toString());
-                    current = new StringBuilder(); // 重置，准备收集后续内容
-                    inDoubleQuotes = false; // 标记退出字符串
-                    isSpace = false; // 重置空格标记
-                }
-                continue;
-            }
-
-            // 处理//注释（双引号外才生效）
-            if (!inDoubleQuotes && c == '/' && i < s.length() - 1 && s.charAt(i + 1) == '/') {
-                // 先添加当前积累的非注释内容（若有）
-                if (!current.isEmpty()) {
-                    result.add(current.toString());
-                    current = new StringBuilder();
-                }
-                // 拼接//并进入注释模式
-                current.append(c).append(s.charAt(++i));
-                inComment = true;
-                continue;
-            }
-
-            // 双引号外的普通字符处理（按空格分割）
-            if (!inDoubleQuotes) {
-                boolean currentIsSpace = (c == ' ');
-                if (currentIsSpace == isSpace) {
-                    current.append(c); // 同类型（空格/非空格）继续拼接
-                } else {
-                    // 类型不同，分割当前片段
-                    if (!current.isEmpty()) {
-                        result.add(current.toString());
-                    }
-                    current = new StringBuilder().append(c);
-                    isSpace = currentIsSpace;
-                }
-            } else {
-                // 双引号内：所有字符直接拼接（属于字符串的一部分）
-                current.append(c);
-            }
-        }
-
-        // 处理剩余内容（可能是未闭合的字符串、普通内容或注释）
-        if (!current.isEmpty()) {
-            result.add(current.toString());
-        }
-
-        return result;
-    }
-
-    public CodeFramework(double x, double y, double width, double height) {
+    public CodeFramework(double x, double y, double width, double height, TokenFixer tokenFixer, List<TokenShader> tokenShaders) {
         this.startX = x;
         this.startY = y;
         this.endX = x + width;
         this.endY = y + height;
         this.base = new Group();
+        tokenFixer.codeFramework = this;
 //        this.codeText = new ArrayList<>();
         this.codeText = Arrays.asList(
                 "package org.bxwbb.spigotplugincreatertool;",
@@ -170,27 +77,35 @@ public class CodeFramework extends BaseLabel {
                 "import javafx.stage.Stage;",
                 "import org.bxwbb.spigotplugincreatertool.windowLabel.CodeFramework.CodeFramework;",
                 "",
+                "@ALL(\"Test\")",
                 "public class LabelTest extends Application {",
                 "",
                 "    @Override",
                 "    public void start(Stage primaryStage) {",
                 "        // 创建主面板",
                 "        Group root = new Group();",
-                "        root.setStyle(\"-fx-background-color: #2b2b2b;\");",
+                "        root.setStyle(\"-fx-background-color: #FbCb8b;\");",
                 "        Scene scene = new Scene(root, 1000, 800);",
                 "",
-                "        CodeFramework codeFramework = new CodeFramework(100, 100, 700, 600);",
+                "        codeFramework codeFramework = new CodeFramework(100, 100, 700, 600);",
                 "        codeFramework.addTo(root);",
                 "",
                 "        // 设置舞台",
                 "        primaryStage.setTitle(\"贝塞尔曲线独立信号动画测试\");",
+                "        System.out.println(\"在Java中使用\\\\\\\"来表示\\\"\");",
+                "        System.out.println(\"所以要表示上面这句话就要这样写\\\\\\\\\\\\\\\"来表示\\\\\\\"\")",
                 "        primaryStage.setScene(scene);",
                 "        primaryStage.show();",
+                "        a = ((((1 + 1 - 1 * 1 / 1 % 1))));",
+                "        b = (1 == 1 && 1 != 1 || (!1 == 1)) ? 1 > 1 : 1 < 1;",
+                "        c = 1 >= 1 ? 1 <= 1 : () -> {{{{{{{{{{{}}}}}}}}}}};",
+                "        List<String> f = new ArrayList<>();",
                 "    }",
                 "",
                 "    public static void main(String[] args) {",
                 "        launch(args);",
                 "    }",
+                "",
                 "}"
         );
         this.background = new Rectangle(x, y, width, height);
@@ -199,6 +114,8 @@ public class CodeFramework extends BaseLabel {
         this.background.setArcHeight(HelloApplication.ROUNDNESS);
         this.background.setStrokeWidth(3.0);
         this.background.setStroke(HelloApplication.BORDER_COLOR);
+        this.cursor = new Rectangle(this.startX, this.startY, 3, codeFont.getSize());
+        this.cursor.setFill(CURSOR_COLOR);
         Rectangle mask = new Rectangle(x + 1, y + 1, width - 2, height - 2);
         mask.setArcWidth(HelloApplication.ROUNDNESS);
         mask.setArcHeight(HelloApplication.ROUNDNESS);
@@ -215,6 +132,9 @@ public class CodeFramework extends BaseLabel {
         this.lineTextLine.setStroke(HelloApplication.BORDER_COLOR);
         this.textFlow.setLayoutX(this.startX + this.lineText.getLayoutBounds().getWidth() + 15 + XOffset);
         this.textFlow.setLayoutY(this.startY + lineOffset + 2);
+        this.tokenFixer = tokenFixer;
+        this.tokenFixer.root = base;
+        this.tokenShaders = tokenShaders;
         updateText();
     }
 
@@ -223,11 +143,6 @@ public class CodeFramework extends BaseLabel {
         this.textFlow.getChildren().clear();
         for (int i = 1; i <= this.codeText.size(); i++) {
             textBuffer.append(i).append("\n");
-            List<String> tokens = splitIncludingSpaces(this.codeText.get(i - 1) + "\n");
-            for (String token : tokens) {
-                Text text = getText(token);
-                this.textFlow.getChildren().add(text);
-            }
         }
         this.lineText.setText(textBuffer.toString());
         this.lineText.setX(this.startX + 8);
@@ -236,17 +151,32 @@ public class CodeFramework extends BaseLabel {
         this.lineTextLine.setEndX(this.startX + this.lineText.getLayoutBounds().getWidth() + 13);
         this.lineTextLine.setStartY(this.startY);
         this.lineTextLine.setEndY(this.endY);
+        this.tokenFixer.setCode(this.textFlow, this.codeText);
+        this.tokenFixer.splitCode();
+        this.textFlow.getChildren().remove(this.tokenFixer.head.text);
+        this.tokenFixer.head = this.tokenFixer.head.getNext();
+        CodeToken token = tokenFixer.getHead();
+        for (TokenShader tokenShader : this.tokenShaders) {
+            tokenShader.reset();
+        }
         this.textFlow.setLayoutX(this.startX + this.lineText.getLayoutBounds().getWidth() + 15 + XOffset);
         this.textFlow.setLayoutY(this.startY + lineOffset + 2);
-    }
-
-    @NotNull
-    private static Text getText(String token) {
-        Text text = new Text(token);
-        text.setFont(codeFont);
-        text.setStyle("-fx-font-family: 'Consolas', 'Microsoft YaHei', 'SimSun';");
-
-        return text;
+        while (token != null) {
+            token.setFont(codeFont);
+            token = token.getNext();
+        }
+        token = tokenFixer.getHead();
+        while (token != null) {
+            token.updateTestBackground();
+            token = token.getNext();
+        }
+        token = tokenFixer.getHead();
+        while (token != null) {
+            for (TokenShader tokenShader : this.tokenShaders) {
+                tokenShader.shader(token, this);
+            }
+            token = token.getNext();
+        }
     }
 
     @Override
@@ -261,17 +191,18 @@ public class CodeFramework extends BaseLabel {
 
     @Override
     public void delete() {
-        this.base.getChildren().retainAll();
+        this.base.getChildren().removeAll();
         this.root.getChildren().remove(this.base);
     }
 
     @Override
     public void addTo(Group root) {
         this.root = root;
-        this.base.getChildren().add(this.background);
-        this.base.getChildren().add(this.textFlow);
-        this.base.getChildren().add(this.lineText);
-        this.base.getChildren().add(this.lineTextLine);
+        this.base.getChildren().addFirst(this.lineTextLine);
+        this.base.getChildren().addFirst(this.lineText);
+        this.base.getChildren().addFirst(this.cursor);
+        this.base.getChildren().addFirst(this.textFlow);
+        this.base.getChildren().addFirst(this.background);
         this.root.getChildren().add(this.base);
     }
 
@@ -312,11 +243,16 @@ public class CodeFramework extends BaseLabel {
 
     @Override
     public BaseLabel createNew() throws ClassNotFoundException {
-        return new CodeFramework(this.startX, this.startY, this.endX - this.startX, this.endY - this.startY);
+        return new CodeFramework(this.startX, this.startY, this.endX - this.startX, this.endY - this.startY, this.tokenFixer, this.tokenShaders);
     }
 
     @Override
     public Node.VarType getVarType() {
         return null;
     }
+
+    public Rectangle getCursor() {
+        return this.cursor;
+    }
+
 }

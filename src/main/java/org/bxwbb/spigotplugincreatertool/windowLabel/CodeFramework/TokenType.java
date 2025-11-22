@@ -8,5 +8,6 @@ public enum TokenType {
     COMMENT,      // 注释（如// 单行注释、/* 多行注释 */）
     OPERATOR,     // 运算符（如+、=、&&）
     PUNCTUATION,  // 标点符号（如;、{、}）
-    UNKNOWN       // 未知类型（默认）
+    UNKNOWN,      // 未知类型（默认）
+    ERROR         // 错误（如未定义的标识符）
 }
