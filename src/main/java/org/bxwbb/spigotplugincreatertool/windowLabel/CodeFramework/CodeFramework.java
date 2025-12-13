@@ -58,7 +58,7 @@ public class CodeFramework extends BaseLabel {
     private final TokenFixer tokenFixer;
     private final List<TokenShader> tokenShaders;
     // 光标
-    private final Rectangle cursor;
+    private final Cursor mainCursor;
 
     public CodeFramework(double x, double y, double width, double height, TokenFixer tokenFixer, List<TokenShader> tokenShaders) {
         this.startX = x;
@@ -114,8 +114,12 @@ public class CodeFramework extends BaseLabel {
         this.background.setArcHeight(HelloApplication.ROUNDNESS);
         this.background.setStrokeWidth(3.0);
         this.background.setStroke(HelloApplication.BORDER_COLOR);
-        this.cursor = new Rectangle(this.startX, this.startY, 3, codeFont.getSize());
-        this.cursor.setFill(CURSOR_COLOR);
+        this.mainCursor = new Cursor(this);
+        this.mainCursor.cursor.setX(this.startX);
+        this.mainCursor.cursor.setY(this.startY);
+        this.mainCursor.cursor.setWidth(3);
+        this.mainCursor.cursor.setHeight(codeFont.getSize());
+        this.mainCursor.setBlink(true);
         Rectangle mask = new Rectangle(x + 1, y + 1, width - 2, height - 2);
         mask.setArcWidth(HelloApplication.ROUNDNESS);
         mask.setArcHeight(HelloApplication.ROUNDNESS);
@@ -200,7 +204,7 @@ public class CodeFramework extends BaseLabel {
         this.root = root;
         this.base.getChildren().addFirst(this.lineTextLine);
         this.base.getChildren().addFirst(this.lineText);
-        this.base.getChildren().addFirst(this.cursor);
+        this.base.getChildren().addFirst(this.mainCursor.cursor);
         this.base.getChildren().addFirst(this.textFlow);
         this.base.getChildren().addFirst(this.background);
         this.root.getChildren().add(this.base);
@@ -251,8 +255,8 @@ public class CodeFramework extends BaseLabel {
         return null;
     }
 
-    public Rectangle getCursor() {
-        return this.cursor;
+    public Cursor getMainCursor() {
+        return this.mainCursor;
     }
 
 }

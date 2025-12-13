@@ -50,12 +50,12 @@ public class CodeToken {
         this.baseBase = new Group();
         this.root.getChildren().add(this.baseBase);
         this.testBackground = new Rectangle(0,0,0,0);
-        this.testBackground.setFill(Color.color(0,0,0,0)); // 填充透明
+        this.testBackground.setFill(Color.color(1,0,0,0.2)); // 填充透明
         this.testBackground.setStroke(Color.TRANSPARENT); // 边框透明（若需要边框可改为其他颜色，如 Color.GRAY）
         this.testBackground.setStrokeWidth(0); // 边框宽度设为0（彻底透明）
         this.testBackground.setOnMouseClicked(event -> {
-            this.codeFramework.getCursor().setX(this.getX());
-            this.codeFramework.getCursor().setY(this.getY());
+            this.codeFramework.getMainCursor().cursor.setX(this.getX());
+            this.codeFramework.getMainCursor().cursor.setY(this.getY());
         });
         this.baseBase.getChildren().addFirst(this.testBackground);
     }

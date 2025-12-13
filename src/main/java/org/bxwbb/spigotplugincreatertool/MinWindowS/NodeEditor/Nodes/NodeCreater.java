@@ -5,7 +5,6 @@ import org.bxwbb.spigotplugincreatertool.HelloApplication;
 import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.CodeTool.ClassAnalyzer;
 import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.Node;
 import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.NodeCtr;
-import org.jetbrains.annotations.NotNull;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -257,7 +256,6 @@ public class NodeCreater {
         );
     }
 
-    @NotNull
     private static List<NodeCtr.NodeGetOutput> getNodeGetOutputs(ClassAnalyzer.ClassInfo records2, ClassAnalyzer.MethodInfo methodInfo) {
         List<NodeCtr.NodeGetOutput> getOutputs = new ArrayList<>();
         if (Modifier.isStatic(methodInfo.modifiers)) {
@@ -303,7 +301,6 @@ public class NodeCreater {
         return getOutputs;
     }
 
-    @NotNull
     private static List<NodeCtr.NodeGetOutput> getNodeGetOutputs(ClassAnalyzer.ClassInfo records2, ClassAnalyzer.FieldInfo fieldInfo) {
         List<NodeCtr.NodeGetOutput> getOutputs = new ArrayList<>();
         if (Modifier.isStatic(fieldInfo.modifiers)) {

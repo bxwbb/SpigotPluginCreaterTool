@@ -7,7 +7,6 @@ import org.bxwbb.spigotplugincreatertool.HelloApplication;
 import org.bxwbb.spigotplugincreatertool.windowLabel.CodeFramework.CodeFramework;
 import org.bxwbb.spigotplugincreatertool.windowLabel.CodeFramework.CodeToken;
 import org.bxwbb.spigotplugincreatertool.windowLabel.CodeFramework.TokenShader;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;
 import java.util.List;
@@ -191,7 +190,6 @@ public class Java extends TokenShader {
         }
     }
 
-    @NotNull
     private Line getLine(CodeToken token, CodeFramework codeFramework, CodeToken temp) {
         double lineX = token.getFirstNonSpace().getX() - 2;
         double lineY = token.getY() + token.getText().getLayoutBounds().getHeight();
