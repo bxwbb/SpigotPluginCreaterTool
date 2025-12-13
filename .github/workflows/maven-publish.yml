@@ -1,19 +1,20 @@
-name: Windows + JDK21 + JavaFX jlink (Auto Zip)
+name: Windows + JDK21 + BAT转EXE + 生成安装包
 
-# 触发方式：推送(push)到main分支时自动运行
 on:
   push:
     branches: [ main ]
-  # 保留手动触发（方便调试）
   workflow_dispatch:
 
 jobs:
-  javafx-jlink-build:
+  build-exe-and-installer:
     runs-on: windows-latest
+    timeout-minutes: 40
     steps:
       # 步骤1：检出代码
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       # 步骤2：配置JDK 21
       - name: Setup JDK 21
@@ -21,34 +22,200 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
+          architecture: x64
           cache: 'maven'
 
-      # 步骤3：验证基础环境
-      - name: Verify Env (JDK/Maven)
+      # 步骤3：Maven打包 + JavaFX jlink（生成app.zip）
+      - name: Build & Generate app.zip
+        id: build-jlink
+        shell: pwsh
         run: |
-          java -version
           mvn -v
+          mvn clean package javafx:jlink -DskipTests=true -Dfile.encoding=UTF-8
+          
+          $zipPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "target/app.zip"
+          if (-not (Test-Path $zipPath)) {
+            Write-Error "❌ app.zip 未生成！"
+            Get-ChildItem -Path "target" -Recurse | Format-Table Name, FullName, Length
+            exit 1
+          }
+          Write-Host "✅ app.zip 生成成功：$zipPath"
 
-      # 步骤4：执行Maven package（临时添加-e -X便于调试编译错误）
-      - name: Maven Clean Package
+      # 步骤4：解压app.zip到target/app目录
+      - name: Unzip app.zip to target/app
+        id: unzip-app
+        shell: pwsh
         run: |
-          # 临时添加-X（调试日志）、-e（完整堆栈），方便定位编译问题
-          # 若想强制跳过编译错误（仅调试），可加 -Dmaven.compiler.failOnError=false
-          mvn clean package -DskipTests=true -e -X
-        continue-on-error: false # 编译失败则终止（必须修复代码）
+          $appDir = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "target/app"
+          if (Test-Path $appDir) { Remove-Item -Path $appDir -Recurse -Force -ErrorAction Stop }
+          New-Item -Path $appDir -ItemType Directory -Force | Out-Null
+          Expand-Archive -Path "target/app.zip" -DestinationPath $appDir -Force -ErrorAction Stop
+          
+          $batFiles = Get-ChildItem -Path "$appDir/image/bin/*.bat" -Recurse -ErrorAction SilentlyContinue
+          if ($batFiles.Count -eq 0) {
+            Write-Error "❌ 未找到BAT文件！"
+            Get-ChildItem -Path "$appDir/image/bin" -Recurse | Format-Table Name, FullName
+            exit 1
+          }
+          $batFile = $batFiles[0]
+          
+          echo "ORIGINAL_BAT_PATH=$($batFile.FullName)" >> $env:GITHUB_ENV
+          echo "APP_BIN_DIR=$($batFile.Directory.FullName)" >> $env:GITHUB_ENV
+          Write-Host "✅ 找到原始BAT文件：$($batFile.FullName)"
 
-      # 步骤5：执行JavaFX jlink（自动生成image目录 + app.zip）
-      - name: Run JavaFX jlink (Auto Zip)
+      # 步骤5：安装Bat to Exe Converter
+      - name: Install Bat to Exe Converter
+        id: install-bat2exe
+        shell: pwsh
         run: |
-          mvn javafx:jlink -DskipTests=true
-          # 验证自动生成的zip文件
-          Get-ChildItem -Path "target/*.zip"
-          Write-Host "JLink auto-generated zip: $(Get-Item target/*.zip | Select-Object -ExpandProperty Name)"
+          choco config set retryAttempts 3
+          choco config set retryIntervalSeconds 5
+          choco install bat-to-exe-converter -y --no-progress --timeout 600
+          
+          if (-not (Get-Command "bat2exe" -ErrorAction SilentlyContinue)) {
+            Write-Error "❌ Bat to Exe Converter 安装失败！"
+            choco list --local-only | FindStr "bat-to-exe"
+            exit 1
+          }
+          Write-Host "✅ Bat to Exe Converter 安装成功"
 
-      # 步骤6：上传插件自动生成的app.zip
-      - name: Upload Auto-Generated app.zip
+      # 步骤6：将原始BAT转为EXE
+      - name: Convert BAT to EXE
+        id: convert-bat
+        shell: pwsh
+        run: |
+          $exeName = "我的世界spigot开发工具.exe"
+          $exePath = Join-Path -Path $env:APP_BIN_DIR -ChildPath $exeName
+          $developer = "BXWBB"
+          $productName = "我的世界spigot开发工具"
+
+          bat2exe `
+            --bat "$env:ORIGINAL_BAT_PATH" `
+            --exe "$exePath" `
+            --author "$developer" `
+            --product "$productName" `
+            --description "Spigot插件开发辅助工具" `
+            --noconsole `
+            --unicode `
+            --admin 0 `
+            --icon none
+
+          if (Test-Path $exePath) {
+            echo "APP_EXE_NAME=$exeName" >> $env:GITHUB_ENV
+            echo "APP_NAME=$productName" >> $env:GITHUB_ENV
+            Write-Host "✅ BAT转EXE成功：$exePath"
+            Get-Item $exePath | Format-List Name, Length, FullName
+          } else {
+            Write-Error "❌ BAT转EXE失败！"
+            Get-ChildItem -Path $env:APP_BIN_DIR -Recurse | Format-Table Name, FullName, Length
+            exit 1
+          }
+
+      # 步骤7：获取项目版本号
+      - name: Get Project Version
+        id: get-version
+        shell: pwsh
+        run: |
+          try {
+            $version = mvn help:evaluate -Dexpression=project.version -q -DforceStdout -Dfile.encoding=UTF-8 2>&1
+            if ($version -match "^\d+\.\d+\.\d+(-\w+)?$" -and -not $version.Contains("ERROR")) {
+              Write-Host "✅ 从POM读取版本号成功：$version"
+            } else {
+              throw "版本格式无效"
+            }
+          } catch {
+            $version = "1.0.0"
+            Write-Warning "⚠️ 读取pom版本失败，使用兜底版本：$version"
+          }
+          echo "VERSION=$version" >> $env:GITHUB_ENV
+          Write-Host "✅ 最终使用版本号：$version"
+
+      # ======================== 核心替换：用jpackage生成安装包 ========================
+      - name: 用jpackage生成Windows安装包（替换Inno Setup）
+        id: build-installer-with-jpackage
+        shell: pwsh
+        run: |
+          # 1. 验证jpackage可用性（JDK21内置）
+          Write-Host "🔍 验证jpackage工具..."
+          if (-not (Get-Command "jpackage" -ErrorAction SilentlyContinue)) {
+            Write-Error "❌ jpackage命令未找到！请确认JDK21已正确配置"
+            java -version
+            exit 1
+          }
+          jpackage --version
+
+          # 2. 定义jpackage参数（适配你的场景）
+          $appName = $env:APP_NAME
+          $appVersion = $env:VERSION
+          $appVendor = "BXWBB"
+          $inputDir = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "target/app/image"
+          $outputDir = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "target"
+          $exeName = "$appName_v$appVersion-安装包.exe"
+
+          # 3. 执行jpackage生成EXE安装包
+          Write-Host "🚀 开始生成安装包...参数："
+          Write-Host "   应用名称：$appName"
+          Write-Host "   版本号：$appVersion"
+          Write-Host "   输入目录：$inputDir"
+          Write-Host "   输出目录：$outputDir"
+
+          jpackage `
+            --type exe `                          # 生成EXE格式安装包
+            --name "$appName" `                   # 应用名称
+            --version "$appVersion" `             # 版本号
+            --input "$inputDir" `                 # jlink生成的镜像目录
+            --dest "$outputDir" `                 # 安装包输出目录
+            --vendor "$appVendor" `               # 发布者
+            --win-exe-name "$exeName" `           # 安装包文件名
+            --win-shortcut `                      # 创建桌面快捷方式
+            --win-dir-chooser `                   # 允许用户选择安装目录
+            --win-menu `                          # 创建开始菜单快捷方式
+            --win-menu-group "$appName" `         # 开始菜单分组名称
+            --win-uninstall-display-name "$appName" ` # 卸载程序显示名称
+            --win-update-url "https://github.com/your-username/your-repo/releases" ` # 更新检查地址（替换为你的仓库）
+            --verbose `                           # 详细日志输出
+            --icon none `                         # 图标（可选：替换为.ico文件路径）
+            --main-jar $(Get-ChildItem -Path "$inputDir/*.jar" | Select-Object -First 1).Name ` # 自动获取主JAR包
+            --main-class $(mvn help:evaluate -Dexpression=project.mainClass -q -DforceStdout) ` # 从POM读取主类
+
+          # 4. 验证安装包生成
+          $installerFile = Get-ChildItem -Path "$outputDir/$exeName" -ErrorAction SilentlyContinue
+          if (-not $installerFile) {
+            Write-Error "❌ 安装包生成失败！"
+            # 打印输出目录内容（调试）
+            Get-ChildItem -Path "$outputDir" -Recurse | Format-Table Name, FullName, Length
+            exit 1
+          }
+
+          # 5. 保存安装包路径到环境变量
+          echo "INSTALLER_PATH=$($installerFile.FullName)" >> $env:GITHUB_ENV
+          Write-Host "✅ jpackage生成安装包成功！"
+          Write-Host "📦 安装包路径：$($installerFile.FullName)"
+          Write-Host "📊 安装包大小：$([math]::Round($installerFile.Length / 1MB, 2)) MB"
+
+      # 步骤9：上传产物1 - 转换后的独立EXE
+      - name: Upload Standalone EXE
         uses: actions/upload-artifact@v4
         with:
-          name: javafx-jlink-app.zip
-          path: target/*.zip
+          name: 我的世界spigot开发工具-独立EXE
+          path: ${{ env.APP_BIN_DIR }}/${{ env.APP_EXE_NAME }}
+          retention-days: 90
+          if-no-files-found: error
+
+      # 步骤10：上传产物2 - jpackage生成的安装包
+      - name: Upload Installer EXE (jpackage)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}_v${{ env.VERSION }}-安装包
+          path: ${{ env.INSTALLER_PATH }}
+          retention-days: 90
+          if-no-files-found: error
+
+      # 步骤11：上传原始app目录
+      - name: Upload Raw app Directory
+        uses: actions/upload-artifact@v4
+        with:
+          name: 原始app目录（含EXE）
+          path: target/app
           retention-days: 30
+          if-no-files-found: error
