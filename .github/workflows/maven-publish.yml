@@ -1,65 +1,48 @@
-name: Maven Build + JWrapper EXE
+name: Windows + JDK21 + JavaFX jlink (Auto Zip)
+
 on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:
+  workflow_dispatch: # 手动触发
+  # push:
+  #   branches: [ main ]
 
 jobs:
-  build-and-package:
-    runs-on: ubuntu-latest # JWrapper 可在 Linux 下跨平台打包 Windows exe
-    permissions:
-      contents: read
-
+  javafx-jlink-build:
+    runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      # 步骤1：检出代码
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      # 步骤1：安装 Java 21（构建 Jar 包用）
-      - name: Set up JDK 21
+      # 步骤2：配置JDK 21
+      - name: Setup JDK 21
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
+          cache: 'maven'
 
-      # 步骤2：构建可执行 Jar 包
-      - name: Build Jar with Maven
-        run: mvn -B clean package --file pom.xml
-
-      # 步骤3：下载 JWrapper 工具
-      - name: Download JWrapper
-        run: wget https://www.jwrapper.com/download/JWrapper.jar -O ./JWrapper.jar
-
-      # 步骤4：准备 JWrapper 配置文件（直接在工作流中生成，避免本地文件上传）
-      - name: Create JWrapper config.xml
+      # 步骤3：验证基础环境
+      - name: Verify Env (JDK/Maven)
         run: |
-          cat > ./config.xml << EOF
-          <JWrapper>
-              <AppName>SpigotPluginCreaterTool</AppName>
-              <AppVersion>0.0.2</AppVersion>
-              <MainClass>org.bxwbb.spigotplugincreatertool.HelloApplication</MainClass>
-              <IncludeJRE>true</IncludeJRE>
-              <JREVersion>21</JREVersion>
-              <JREDownloadURL>https://javadl.oracle.com/webapps/download/AutoDL?BundleId=249194_424b9da4b48848379167015dcc250d8d</JREDownloadURL>
-              <JarPath>./target/SpigotPluginCreaterTool-0.0.2.jar</JarPath>
-              <Windows>
-                  <EXEName>SpigotPluginCreaterTool.exe</EXEName>
-                  <AdminRequired>false</AdminRequired>
-              </Windows>
-              <OutputDir>./jwrapper-output</OutputDir>
-          </JWrapper>
-          EOF
+          java -version
+          mvn -v
 
-      # 步骤5：用 JWrapper 打包 exe
-      - name: Package EXE with JWrapper
-        run: java -jar JWrapper.jar ./config.xml
+      # 步骤4：执行Maven package（编译项目）
+      - name: Maven Clean Package
+        run: mvn clean package -DskipTests=true
 
-      # 步骤6：上传所有产物（Jar压缩包、单个Jar、exe）
-      - name: Upload All Artifacts
+      # 步骤5：执行JavaFX jlink（自动生成image目录 + app.zip）
+      - name: Run JavaFX jlink (Auto Zip)
+        run: |
+          mvn javafx:jlink -DskipTests=true
+          # 验证自动生成的zip文件
+          Get-ChildItem -Path "target/*.zip" # 列出target下的zip包
+          Write-Host "JLink auto-generated zip: $(Get-Item target/*.zip | Select-Object -ExpandProperty Name)"
+
+      # 步骤6：上传插件自动生成的app.zip
+      - name: Upload Auto-Generated app.zip
         uses: actions/upload-artifact@v4
         with:
-          name: SpigotPluginCreaterTool-All-Products
-          path: |
-            ./target/*.jar                # 所有 Jar 包
-            ./jwrapper-output/Windows/*.exe # 生成的 exe 文件
-          if-no-files-found: error
+          name: javafx-jlink-app
+          path: target/*.zip # 直接匹配插件生成的zip包
+          retention-days: 30
