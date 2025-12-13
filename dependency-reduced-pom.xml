@@ -4,16 +4,39 @@
   <groupId>org.bxwbb</groupId>
   <artifactId>SpigotPluginCreaterTool</artifactId>
   <name>SpigotPluginCreaterTool</name>
-  <version>0.0.2</version>
+  <version>1.0-SNAPSHOT</version>
   <build>
     <plugins>
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.11.0</version>
+        <version>3.10.1</version>
         <configuration>
-          <source>21</source>
-          <target>21</target>
+          <source>19</source>
+          <target>19</target>
         </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.openjfx</groupId>
+        <artifactId>javafx-maven-plugin</artifactId>
+        <version>0.0.8</version>
+        <executions>
+          <execution>
+            <id>default-cli</id>
+            <configuration>
+              <mainClass>org.bxwbb.spigotplugincreatertool/org.bxwbb.spigotplugincreatertool.HelloApplication</mainClass>
+              <launcher>app</launcher>
+              <jlinkZipName>app</jlinkZipName>
+              <jlinkImageName>app</jlinkImageName>
+              <noManPages>true</noManPages>
+              <stripDebug>true</stripDebug>
+              <noHeaderFiles>true</noHeaderFiles>
+              <excludeArtifacts>
+                <excludeArtifact>com.caucho:hessian</excludeArtifact>
+                <excludeArtifact>com.github.javaparser:javaparser-core</excludeArtifact>
+              </excludeArtifacts>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <artifactId>maven-shade-plugin</artifactId>
@@ -27,7 +50,7 @@
             <configuration>
               <transformers>
                 <transformer>
-                  <mainClass>org.bxwbb.spigotplugincreatertool.HelloApplication</mainClass>
+                  <mainClass>org.bxwbb.spigotplugincreatertool/org.bxwbb.spigotplugincreatertool.HelloApplication</mainClass>
                 </transformer>
               </transformers>
             </configuration>
@@ -36,20 +59,6 @@
       </plugin>
     </plugins>
   </build>
-  <repositories>
-    <repository>
-      <id>openjfx</id>
-      <url>https://maven.openjfx.io</url>
-    </repository>
-    <repository>
-      <releases />
-      <snapshots>
-        <enabled>false</enabled>
-      </snapshots>
-      <id>gluon-releases</id>
-      <url>https://nexus.gluonhq.com/nexus/content/repositories/releases/</url>
-    </repository>
-  </repositories>
   <dependencies>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
@@ -88,16 +97,10 @@
       </exclusions>
     </dependency>
   </dependencies>
-  <distributionManagement>
-    <repository>
-      <id>github</id>
-      <name>GitHub Packages</name>
-      <url>https://maven.pkg.github.com/bxwbb/SpigotPluginCreaterTool</url>
-    </repository>
-  </distributionManagement>
   <properties>
+    <maven.compiler.target>19</maven.compiler.target>
+    <maven.compiler.source>19</maven.compiler.source>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <javafx.version>21.0.1</javafx.version>
     <junit.version>5.10.0</junit.version>
   </properties>
 </project>

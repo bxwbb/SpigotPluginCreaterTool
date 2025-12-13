@@ -16,13 +16,13 @@ import javafx.scene.shape.Line;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.shape.Shape;
 import javafx.stage.FileChooser;
+import org.bxwbb.spigotplugincreatertool.FileUtils;
 import org.bxwbb.spigotplugincreatertool.HelloApplication;
 import org.bxwbb.spigotplugincreatertool.MinWindow;
 import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.Nodes.InputNodes;
 import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.Nodes.NodeTopBarColor;
 import org.bxwbb.spigotplugincreatertool.MinWindowType;
 import org.bxwbb.spigotplugincreatertool.windowLabel.*;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -213,7 +213,7 @@ public class NodeEditor extends MinWindowType {
         this.openFileButton = new Button(this.startX + this.getEditorNameWidth() + 205, this.startY + MinWindow.PADDING + 15.0, this.startX + this.getEditorNameWidth() + 225, this.startY + MinWindow.PADDING + 35.0, false);
         this.openFileButton.resetImage(
                 new Image(
-                        Objects.requireNonNull(getClass().getResourceAsStream("/org/bxwbb/spigotplugincreatertool/icon/MinecraftServerCreater/OpenFile.png"))
+                        FileUtils.loadResourceFile("/org/bxwbb/spigotplugincreatertool/icon/MinecraftServerCreater/OpenFile.png")
                 )
         );
         this.openFileButton.addTo(this.topBase);
@@ -260,7 +260,7 @@ public class NodeEditor extends MinWindowType {
         this.saveFileButton = new Button(this.startX + this.getEditorNameWidth() + 230, this.startY + MinWindow.PADDING + 15.0, this.startX + this.getEditorNameWidth() + 250, this.startY + MinWindow.PADDING + 35.0, false);
         this.saveFileButton.resetImage(
                 new Image(
-                        Objects.requireNonNull(getClass().getResourceAsStream("/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/SaveFile.png"))
+                        FileUtils.loadResourceFile("/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/SaveFile.png")
                 )
         );
         this.saveFileButton.addTo(this.topBase);
@@ -296,9 +296,9 @@ public class NodeEditor extends MinWindowType {
             } else {
                 runButton.setData(false);
                 runButton.resetImage(
-                        new Image(Objects.requireNonNull(getClass().getResourceAsStream(
-                                "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Run.png"
-                        )))
+                        new Image(
+                                FileUtils.loadResourceFile("/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Run.png")
+                        )
                 );
                 if (this.runCode != null)
                     this.runCode.cancel();
@@ -311,7 +311,7 @@ public class NodeEditor extends MinWindowType {
             }
         });
         this.nextButton = new Button(this.startX + this.getEditorNameWidth() + 525, this.startY + MinWindow.PADDING + 15.0, this.startX + this.getEditorNameWidth() + 545, this.startY + MinWindow.PADDING + 35.0, false);
-        this.nextButton.resetImage(new Image(Objects.requireNonNull(this.getClass().getResourceAsStream("/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/next.png"))));
+        this.nextButton.resetImage(new Image(FileUtils.loadResourceFile("/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Next.png")));
         this.nextButton.addTo(this.topBase);
         this.nextButton.background.setOnMouseClicked(event -> {
             this.nextButton.setData(true);
@@ -328,9 +328,9 @@ public class NodeEditor extends MinWindowType {
                 } else {
                     runButton.setData(true);
                     runButton.resetImage(
-                            new Image(Objects.requireNonNull(getClass().getResourceAsStream(
-                                    "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Stop.png"
-                            )))
+                            new Image(
+                                    FileUtils.loadResourceFile("/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Stop.png")
+                            )
                     );
                     this.runNodectr.node.backgroundBorder.setFill(Node.RUNNING_COLOR);
                 }
@@ -347,9 +347,9 @@ public class NodeEditor extends MinWindowType {
                 } else {
                     runButton.setData(false);
                     runButton.resetImage(
-                            new Image(Objects.requireNonNull(getClass().getResourceAsStream(
-                                    "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Run.png"
-                            )))
+                            new Image(
+                                    FileUtils.loadResourceFile("/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Run.png")
+                            )
                     );
                     this.runNodectr = null;
                 }
@@ -640,7 +640,6 @@ public class NodeEditor extends MinWindowType {
         return ret;
     }
 
-    @NotNull
     private static JSONArray getJsonArray(NodeCtr nodeCtr, int i) {
         JSONArray jsonArray = new JSONArray();
         SelfAdaptionListSlider slider = (SelfAdaptionListSlider) nodeCtr.node.leftCardNodes.get(i).edit;

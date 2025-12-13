@@ -66,6 +66,8 @@ public class HelloApplication extends Application {
     public static Color MENU_COLOR = Color.color(0.2, 0.2, 0.2);
     // 字体颜色
     public static Color FONT_COLOR = Color.color(0.7, 0.7, 0.7);
+    // 字体未选中颜色
+    public static Color UNSELECTED_FONT_COLOR = Color.color(0.5, 0.5, 0.5);
     // 字体
     public static Font TEXT_FONT = Font.font("Arial", FontWeight.NORMAL, 12);
     // 取消显示位移量
@@ -698,6 +700,18 @@ public class HelloApplication extends Application {
     // 失去焦点
     public static void loseFocus() {
         HelloApplication.textField.requestFocus();
+    }
+
+    @Override
+    public void init() throws Exception {
+        super.init();
+        logger.info("执行初始化...");
+    }
+
+    @Override
+    public void stop() throws Exception {
+        super.stop();
+        logger.info("执行停止...");
     }
 
 }

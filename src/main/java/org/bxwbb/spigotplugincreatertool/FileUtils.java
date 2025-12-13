@@ -1,9 +1,8 @@
 package org.bxwbb.spigotplugincreatertool;
 
-import com.caucho.hessian.io.HessianInput;
-import com.caucho.hessian.io.HessianOutput;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -307,9 +306,7 @@ public class FileUtils {
         });
 
         // 添加完成事件监听器
-        executor.addCompletionListener(exitCode -> {
-            System.out.println("【完成事件】执行结束，退出码: " + exitCode);
-        });
+        executor.addCompletionListener(exitCode -> System.out.println("【完成事件】执行结束，退出码: " + exitCode));
 
         // 执行BAT
         executor.executeBatAsync(batPath);
@@ -318,6 +315,19 @@ public class FileUtils {
         while (executor.isExecuting()) {
             Thread.sleep(500);
         }
+    }
+
+    /**
+     * 加载resources下的文件
+     */
+    public static InputStream loadResourceFile(String filePath) {
+        InputStream icon = FileUtils.class.getResourceAsStream(filePath);
+        if (icon == null) {
+            logger.error("安装包或应用程序可能受损,具体体现为-无法找到文件{}", filePath);
+            throw new RuntimeException("安装包或应用程序可能受损,具体体现为-无法找到文件" + filePath);
+        }
+        logger.info("成功加载文件{}", filePath);
+        return icon;
     }
 
 }
