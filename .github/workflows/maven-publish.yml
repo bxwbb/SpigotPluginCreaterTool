@@ -1,9 +1,11 @@
 name: Windows + JDK21 + JavaFX jlink (Auto Zip)
 
+# 触发方式：推送(push)到main分支时自动运行
 on:
-  workflow_dispatch: # 手动触发
-  # push:
-  #   branches: [ main ]
+  push:
+    branches: [ main ]
+  # 保留手动触发（方便调试）
+  workflow_dispatch:
 
 jobs:
   javafx-jlink-build:
@@ -27,16 +29,20 @@ jobs:
           java -version
           mvn -v
 
-      # 步骤4：执行Maven package（编译项目）
+      # 步骤4：执行Maven package（临时添加-e -X便于调试编译错误）
       - name: Maven Clean Package
-        run: mvn clean package -DskipTests=true
+        run: |
+          # 临时添加-X（调试日志）、-e（完整堆栈），方便定位编译问题
+          # 若想强制跳过编译错误（仅调试），可加 -Dmaven.compiler.failOnError=false
+          mvn clean package -DskipTests=true -e -X
+        continue-on-error: false # 编译失败则终止（必须修复代码）
 
       # 步骤5：执行JavaFX jlink（自动生成image目录 + app.zip）
       - name: Run JavaFX jlink (Auto Zip)
         run: |
           mvn javafx:jlink -DskipTests=true
           # 验证自动生成的zip文件
-          Get-ChildItem -Path "target/*.zip" # 列出target下的zip包
+          Get-ChildItem -Path "target/*.zip"
           Write-Host "JLink auto-generated zip: $(Get-Item target/*.zip | Select-Object -ExpandProperty Name)"
 
       # 步骤6：上传插件自动生成的app.zip
@@ -44,5 +50,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: javafx-jlink-app
-          path: target/*.zip # 直接匹配插件生成的zip包
+          path: target/*.zip
           retention-days: 30

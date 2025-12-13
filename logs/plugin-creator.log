@@ -80,3 +80,14 @@
 2025-12-13 15:20:28.820 [JavaFX Application Thread] INFO  o.b.s.FileUtils - 成功加载文件/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/SaveFile.png
 2025-12-13 15:20:28.824 [JavaFX Application Thread] INFO  o.b.s.FileUtils - 成功加载文件/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Next.png
 2025-12-13 15:20:31.917 [JavaFX Application Thread] INFO  o.b.s.HelloApplication - 执行停止...
+2025-12-13 16:21:48.789 [JavaFX-Launcher] INFO  o.b.s.HelloApplication - 执行初始化...
+2025-12-13 16:21:48.794 [JavaFX Application Thread] INFO  o.b.s.HelloApplication - 工具开始启动并加载...
+2025-12-13 16:21:48.966 [ForkJoinPool.commonPool-worker-1] INFO  o.b.s.HelloApplication - 加载第1/1项-扫描类
+2025-12-13 16:21:49.123 [ForkJoinPool.commonPool-worker-1] INFO  o.b.s.HelloApplication - 初始化完成，耗时: 156ms
+2025-12-13 16:21:49.149 [JavaFX Application Thread] INFO  o.b.s.FileUtils - 成功加载文件/org/bxwbb/spigotplugincreatertool/icon/MinecraftServerCreater/OpenFile.png
+2025-12-13 16:21:49.152 [JavaFX Application Thread] INFO  o.b.s.FileUtils - 成功加载文件/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/SaveFile.png
+2025-12-13 16:21:49.156 [JavaFX Application Thread] INFO  o.b.s.FileUtils - 成功加载文件/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Next.png
+2025-12-13 16:21:53.517 [JavaFX Application Thread] INFO  o.b.s.FileUtils - 成功加载文件/org/bxwbb/spigotplugincreatertool/icon/MinecraftServerCreater/OpenFile.png
+2025-12-13 16:21:53.519 [JavaFX Application Thread] INFO  o.b.s.FileUtils - 成功加载文件/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/SaveFile.png
+2025-12-13 16:21:53.520 [JavaFX Application Thread] INFO  o.b.s.FileUtils - 成功加载文件/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Next.png
+2025-12-13 16:21:55.126 [JavaFX Application Thread] INFO  o.b.s.HelloApplication - 执行停止...
