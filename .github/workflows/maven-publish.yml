@@ -1,4 +1,4 @@
-name: 构建+BAT转EXE+压缩上传
+name: 构建+BAT转EXE+压缩上传（C#编译版）
 
 on:
   push:
@@ -23,163 +23,179 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           architecture: x64
-          cache: 'maven'
+          cache: 'maven'  # 缓存Maven依赖，加速构建
 
-      # 步骤3：执行mvn package
+      # 步骤3：执行mvn package（核心打包）
       - name: Run mvn package
         id: run-package
         shell: pwsh
         run: |
+          # 配置编码，避免中文乱码
           $env:MAVEN_OPTS = "-Dfile.encoding=UTF-8 -Dsun.jnu.encoding=UTF-8"
           echo "MAVEN_OPTS=$env:MAVEN_OPTS" >> $env:GITHUB_ENV
           
           Write-Host "📦 执行 mvn clean package -DskipTests=true"
           mvn clean package -DskipTests=true
+          
+          # 检查构建结果
           if ($LASTEXITCODE -ne 0) {
-            Write-Error "❌ mvn package 失败！"
+            Write-Error "❌ mvn package 执行失败！"
             exit 1
           }
-          Write-Host "✅ mvn package 成功"
+          Write-Host "✅ mvn package 执行成功"
 
-      # 步骤4：执行javafx:jlink
+      # 步骤4：执行javafx:jlink（生成自定义JRE）
       - name: Run javafx:jlink
         id: run-jlink
         shell: pwsh
         run: |
           Write-Host "🔗 执行 mvn javafx:jlink -DskipTests=true"
           mvn javafx:jlink -DskipTests=true
+          
+          # 检查Jlink结果
           if ($LASTEXITCODE -ne 0) {
-            Write-Error "❌ javafx:jlink 失败！"
+            Write-Error "❌ javafx:jlink 执行失败！"
             exit 1
           }
-          Write-Host "✅ javafx:jlink 成功"
+          Write-Host "✅ javafx:jlink 执行成功"
 
-      # 步骤5：下载便携版BAT to EXE Converter（解决Chocolatey下架问题）
-      - name: Download BAT to EXE Converter (Portable)
-        id: download-bat2exe
-        shell: pwsh
-        run: |
-          $ProgressPreference = 'SilentlyContinue'
-          $toolDir = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "tools/bat2exe"
-          $zipFile = Join-Path -Path $toolDir -ChildPath "bat2exe-converter.zip"
-          $bat2exeUrls = @(
-            "https://mirror.ghproxy.com/https://downloads.sourceforge.net/project/bat-to-exe-converter/bat2exe-converter.zip",
-            "https://downloads.sourceforge.net/project/bat-to-exe-converter/bat2exe-converter.zip"
-          )
-
-          # 创建工具目录
-          if (-not (Test-Path $toolDir)) { New-Item -Path $toolDir -ItemType Directory -Force | Out-Null }
-
-          # 循环下载
-          $downloadSuccess = $false
-          foreach ($url in $bat2exeUrls) {
-            try {
-              Write-Host "📥 尝试下载：$url"
-              curl -L -o "$zipFile" "$url" --connect-timeout 30 --max-time 300
-              if (Test-Path $zipFile -and (Get-Item $zipFile).Length -gt 0) {
-                $downloadSuccess = $true
-                break
-              }
-            } catch { Write-Warning "⚠️ 下载失败：$_" }
-          }
-
-          if (-not $downloadSuccess) {
-            Write-Error "❌ BAT to EXE Converter 下载失败！"
-            exit 1
-          }
-
-          # 解压并查找bat2exe.exe
-          Expand-Archive -Path $zipFile -DestinationPath $toolDir -Force
-          $bat2exeExe = Get-ChildItem -Path $toolDir -Recurse -Name "bat2exe.exe" | Select-Object -First 1
-          if ([string]::IsNullOrEmpty($bat2exeExe)) {
-            Write-Error "❌ 未找到bat2exe.exe！"
-            exit 1
-          }
-
-          $bat2exePath = Join-Path -Path $toolDir -ChildPath $bat2exeExe
-          echo "BAT2EXE_PATH=$bat2exePath" >> $env:GITHUB_ENV
-          Write-Host "✅ BAT to EXE Converter 准备完成：$bat2exePath"
-
-      # 步骤6：将target/app/bin/app.bat转为SpigotPluginCreaterTool.exe
-      - name: Convert app.bat to SpigotPluginCreaterTool.exe
+      # 步骤5：C#编译生成EXE（核心替换，无第三方工具）
+      - name: Build EXE from BAT (C# Compile)
         id: convert-bat
         shell: pwsh
         run: |
-          # 定义路径
-          $batPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "target/app/bin/app.bat"
-          $exePath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "target/app/bin/SpigotPluginCreaterTool.exe"
+          # 定义核心路径
+          $batFilePath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "target/app/bin/app.bat"
+          $exeFilePath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "target/app/bin/SpigotPluginCreaterTool.exe"
+          $tempCsFile = Join-Path -Path $env:TEMP -ChildPath "SpigotLauncher.cs"  # 临时C#源码文件
 
-          # 检查BAT文件是否存在
-          if (-not (Test-Path $batPath)) {
-            Write-Error "❌ 未找到 $batPath 文件！"
+          # 1. 检查BAT文件是否存在
+          if (-not (Test-Path -Path $batFilePath)) {
+            Write-Error "❌ 未找到BAT文件：$batFilePath"
+            # 打印目录结构辅助调试
+            Write-Host "📂 target/app/bin 目录内容："
+            Get-ChildItem -Path (Split-Path $batFilePath) -Recurse | Format-Table Name, FullName
             exit 1
           }
 
-          # 执行转换
-          Write-Host "🔄 转换 BAT → EXE：$batPath → $exePath"
-          & "$env:BAT2EXE_PATH" `
-            --bat "$batPath" `
-            --exe "$exePath" `
-            --author "BXWBB" `
-            --product "SpigotPluginCreaterTool" `
-            --description "Spigot插件开发工具" `
-            --noconsole `
-            --unicode `
-            --admin 0 `
-            --icon none
+          # 2. 编写C#启动器源码（核心逻辑：调用BAT，隐藏控制台）
+          $csharpCode = @"
+          using System;
+          using System.Diagnostics;
+          using System.IO;
+          using System.Reflection;
+          
+          namespace SpigotPluginCreaterTool
+          {
+            internal class Program
+            {
+              static void Main(string[ ] args)
+              {
+                // 获取EXE所在目录（确保BAT路径正确）
+                string exeDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                string batPath = Path.Combine(exeDir, "app.bat");
+          
+                // 验证BAT文件存在
+                if (!File.Exists(batPath))
+                {
+                  MessageBox.Show("找不到app.bat文件！", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                  return;
+                }
+          
+                // 启动BAT文件（隐藏控制台窗口）
+                ProcessStartInfo psi = new ProcessStartInfo
+                {
+                  FileName = "cmd.exe",
+                  Arguments = $"/c ""{ batPath }""",
+                        WorkingDirectory = exeDir,
+                        WindowStyle = ProcessWindowStyle.Hidden,  // 隐藏窗口
+                        CreateNoWindow = true,                     // 不创建控制台
+                        UseShellExecute = false
+                    };
+          
+                    try
+                    {
+                        Process.Start(psi);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"启动失败：{ ex.Message }", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+              }
+            }
+          }
+          "@
 
-          # 验证转换结果
-          if (Test-Path $exePath) {
-            Write-Host "✅ EXE生成成功：$exePath"
-            Get-Item $exePath | Format-List Name, Length, FullName
+          # 3. 将C#源码写入临时文件
+          $csharpCode | Out-File -Path $tempCsFile -Encoding UTF8 -Force
+          Write-Host "✅ 生成C#源码文件：$tempCsFile"
+  
+          # 4. 用.NET内置编译器（csc）编译为EXE
+          Write-Host "🔨 编译C#源码为EXE..."
+          # /target:winexe：Windows应用（无控制台）；/platform:x64：64位程序；/win32icon:none：无图标
+          csc /target:winexe /out:"$exeFilePath" /platform:x64 /win32icon:none "$tempCsFile"
+          
+          # 5. 验证EXE生成结果
+          if (Test-Path -Path $exeFilePath) {
+          Write-Host "✅ EXE文件生成成功！"
+          Write-Host "📄 EXE路径：$exeFilePath"
+          Write-Host "📊 EXE大小：$([math]::Round((Get-Item $exeFilePath).Length / 1KB, 2)) KB"
+          
+          # 删除临时C#文件
+          Remove-Item -Path $tempCsFile -Force -ErrorAction SilentlyContinue
           } else {
-            Write-Error "❌ EXE生成失败！"
+            Write-Error "❌ EXE文件生成失败！"
+            # 打印编译器错误（如果有）
+            Write-Host "📜 尝试重新编译并输出错误："
+            csc /target:winexe /out:"$exeFilePath" /platform:x64 "$tempCsFile" 2>&1
             exit 1
           }
 
-      # 步骤7：删除target/app.zip（按之前要求）
+        # 步骤6：删除target/app.zip文件
       - name: Delete app.zip
         shell: pwsh
         run: |
           $appZipPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "target/app.zip"
-          if (Test-Path $appZipPath) {
-            Write-Host "🗑️ 删除 $appZipPath"
-            Remove-Item -Path $appZipPath -Force
-            Write-Host "✅ 删除成功"
-          } else {
-            Write-Host "ℹ️ 未找到app.zip，无需删除"
+      
+          if (Test-Path -Path $appZipPath) {
+            Write-Host "🗑️ 删除文件：$appZipPath"
+            Remove-Item -Path $appZipPath -Force -ErrorAction Stop
+            Write-Host "✅ app.zip 删除成功"
+          }
+          else {
+            Write-Host "ℹ️ 未找到app.zip文件，无需删除"
           }
 
-      # 步骤8：压缩target/app目录为SpigotPluginCreaterTool.zip（存到target目录）
-      - name: Compress target/app to SpigotPluginCreaterTool.zip
+      # 步骤7：压缩target/app目录为SpigotPluginCreaterTool.zip
+      - name: Compress app directory to ZIP
         id: compress-app
         shell: pwsh
         run: |
-          # 定义路径
           $appDir = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "target/app"
           $zipPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "target/SpigotPluginCreaterTool.zip"
-
+          
           # 检查app目录是否存在
-          if (-not (Test-Path $appDir)) {
-            Write-Error "❌ 未找到 $appDir 目录！"
+          if (-not (Test-Path -Path $appDir)) {
+            Write-Error "❌ 未找到app目录：$appDir"
             exit 1
           }
-
+          
           # 压缩目录（覆盖已有文件）
-          Write-Host "📦 压缩 $appDir → $zipPath"
-          Compress-Archive -Path "$appDir/*" -DestinationPath $zipPath -Force
-
+          Write-Host "📦 压缩目录：$appDir → $zipPath"
+          Compress-Archive -Path "$appDir/*" -DestinationPath $zipPath -Force -CompressionLevel Optimal
+          
           # 验证压缩包
-          if (Test-Path $zipPath) {
-            Write-Host "✅ 压缩包生成成功：$zipPath"
+          if (Test-Path -Path $zipPath) {
+            Write-Host "✅ 压缩包生成成功！"
             Write-Host "📊 压缩包大小：$([math]::Round((Get-Item $zipPath).Length / 1MB, 2)) MB"
             echo "ZIP_PATH=$zipPath" >> $env:GITHUB_ENV
-          } else {
+          }
+          else {
             Write-Error "❌ 压缩包生成失败！"
             exit 1
           }
 
-      # 步骤9：上传target目录下所有JAR包
+      # 步骤8：上传所有JAR包
       - name: Upload all JAR files
         uses: actions/upload-artifact@v4
         with:
@@ -188,20 +204,20 @@ jobs:
             ${{ github.workspace }}/target/*.jar
             ${{ github.workspace }}/target/**/*.jar
           retention-days: 90
-          if-no-files-found: warn
+          if-no-files-found: warn  # 无JAR包仅警告，不中断
 
-      # 步骤10：上传SpigotPluginCreaterTool.zip压缩包
+      # 步骤9：上传最终压缩包（含EXE+JRE）
       - name: Upload SpigotPluginCreaterTool.zip
         uses: actions/upload-artifact@v4
         with:
           name: SpigotPluginCreaterTool完整包
           path: ${{ env.ZIP_PATH }}
           retention-days: 90
-          if-no-files-found: error
+          if-no-files-found: error  # 无压缩包则报错
 
-      # 可选：打印最终目录结构（调试）
+      # 可选：打印最终目录结构（调试用）
       - name: Show final target directory
         shell: pwsh
         run: |
           Write-Host "📂 target目录最终内容："
-          Get-ChildItem -Path "$env:GITHUB_WORKSPACE/target" -Recurse | Format-Table Name, FullName, Length
+          Get-ChildItem -Path "$env:GITHUB_WORKSPACE/target" -Recurse | Format-Table Name, FullName, Length, LastWriteTime
