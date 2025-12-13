@@ -10,13 +10,11 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 40
     steps:
-      # 步骤1：检出代码
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      # 步骤2：配置JDK 21
       - name: Setup JDK 21
         uses: actions/setup-java@v4
         with:
@@ -25,23 +23,47 @@ jobs:
           architecture: x64
           cache: 'maven'
 
-      # 步骤3：Maven打包 + JavaFX jlink（生成app.zip）
+      # 修复核心：Maven命令格式 + 编码配置优化
       - name: Build & Generate app.zip
         id: build-jlink
         shell: pwsh
         run: |
+          # 打印环境信息
           mvn -v
-          mvn clean package javafx:jlink -DskipTests=true -Dfile.encoding=UTF-8
           
+          # 修复1：正确设置Maven编码（通过MAVEN_OPTS环境变量，避免命令行参数解析错误）
+          $env:MAVEN_OPTS = "-Dfile.encoding=UTF-8 -Dsun.jnu.encoding=UTF-8"
+          echo "MAVEN_OPTS=$env:MAVEN_OPTS" >> $env:GITHUB_ENV
+          
+          # 修复2：拆分Maven命令，先打包再执行jlink（避免参数过多解析错误）
+          # 第一步：clean package（跳过测试）
+          Write-Host "📦 执行Maven打包..."
+          mvn clean package -DskipTests=true
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "❌ Maven package 失败！"
+            exit 1
+          }
+          
+          # 第二步：执行javafx:jlink生成自定义JRE镜像
+          Write-Host "🔗 执行JavaFX jlink..."
+          mvn javafx:jlink -DskipTests=true
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "❌ Maven javafx:jlink 失败！"
+            exit 1
+          }
+          
+          # 验证app.zip生成（适配你的项目：SpigotPluginCreaterTool）
           $zipPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "target/app.zip"
           if (-not (Test-Path $zipPath)) {
             Write-Error "❌ app.zip 未生成！"
+            # 打印target目录所有文件（调试）
+            Write-Host "📂 Target目录内容："
             Get-ChildItem -Path "target" -Recurse | Format-Table Name, FullName, Length
             exit 1
           }
           Write-Host "✅ app.zip 生成成功：$zipPath"
+          Get-Item $zipPath | Format-List Name, Length, LastWriteTime
 
-      # 步骤4：解压app.zip到target/app目录
       - name: Unzip app.zip to target/app
         id: unzip-app
         shell: pwsh
@@ -63,7 +85,6 @@ jobs:
           echo "APP_BIN_DIR=$($batFile.Directory.FullName)" >> $env:GITHUB_ENV
           Write-Host "✅ 找到原始BAT文件：$($batFile.FullName)"
 
-      # 步骤5：安装Bat to Exe Converter
       - name: Install Bat to Exe Converter
         id: install-bat2exe
         shell: pwsh
@@ -79,7 +100,6 @@ jobs:
           }
           Write-Host "✅ Bat to Exe Converter 安装成功"
 
-      # 步骤6：将原始BAT转为EXE
       - name: Convert BAT to EXE
         id: convert-bat
         shell: pwsh
@@ -111,17 +131,18 @@ jobs:
             exit 1
           }
 
-      # 步骤7：获取项目版本号
       - name: Get Project Version
         id: get-version
         shell: pwsh
         run: |
           try {
-            $version = mvn help:evaluate -Dexpression=project.version -q -DforceStdout -Dfile.encoding=UTF-8 2>&1
+            # 修复：通过MAVEN_OPTS确保编码正确
+            $env:MAVEN_OPTS = "-Dfile.encoding=UTF-8"
+            $version = mvn help:evaluate -Dexpression=project.version -q -DforceStdout 2>&1
             if ($version -match "^\d+\.\d+\.\d+(-\w+)?$" -and -not $version.Contains("ERROR")) {
               Write-Host "✅ 从POM读取版本号成功：$version"
             } else {
-              throw "版本格式无效"
+              throw "版本格式无效：$version"
             }
           } catch {
             $version = "1.0.0"
@@ -130,21 +151,20 @@ jobs:
           echo "VERSION=$version" >> $env:GITHUB_ENV
           Write-Host "✅ 最终使用版本号：$version"
 
-      # ======================== 核心替换：用jpackage生成安装包 ========================
-      - name: 用jpackage生成Windows安装包（替换Inno Setup）
+      # 修复jpackage参数：适配你的项目（SpigotPluginCreaterTool）
+      - name: 用jpackage生成Windows安装包
         id: build-installer-with-jpackage
         shell: pwsh
         run: |
-          # 1. 验证jpackage可用性（JDK21内置）
-          Write-Host "🔍 验证jpackage工具..."
+          # 验证jpackage
           if (-not (Get-Command "jpackage" -ErrorAction SilentlyContinue)) {
-            Write-Error "❌ jpackage命令未找到！请确认JDK21已正确配置"
+            Write-Error "❌ jpackage命令未找到！"
             java -version
             exit 1
           }
           jpackage --version
 
-          # 2. 定义jpackage参数（适配你的场景）
+          # 定义参数（适配你的项目）
           $appName = $env:APP_NAME
           $appVersion = $env:VERSION
           $appVendor = "BXWBB"
@@ -152,48 +172,42 @@ jobs:
           $outputDir = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "target"
           $exeName = "$appName_v$appVersion-安装包.exe"
 
-          # 3. 执行jpackage生成EXE安装包
-          Write-Host "🚀 开始生成安装包...参数："
-          Write-Host "   应用名称：$appName"
-          Write-Host "   版本号：$appVersion"
-          Write-Host "   输入目录：$inputDir"
-          Write-Host "   输出目录：$outputDir"
+          # 修复：手动指定主类和JAR包（适配你的项目SpigotPluginCreaterTool）
+          $mainJar = "SpigotPluginCreaterTool-1.0-SNAPSHOT.jar" # 替换为你的实际JAR包名
+          $mainClass = "org.bxwbb.Main" # 替换为你的实际主类
 
+          # 执行jpackage
+          Write-Host "🚀 生成安装包：$exeName"
           jpackage `
-            --type exe `                          # 生成EXE格式安装包
-            --name "$appName" `                   # 应用名称
-            --version "$appVersion" `             # 版本号
-            --input "$inputDir" `                 # jlink生成的镜像目录
-            --dest "$outputDir" `                 # 安装包输出目录
-            --vendor "$appVendor" `               # 发布者
-            --win-exe-name "$exeName" `           # 安装包文件名
-            --win-shortcut `                      # 创建桌面快捷方式
-            --win-dir-chooser `                   # 允许用户选择安装目录
-            --win-menu `                          # 创建开始菜单快捷方式
-            --win-menu-group "$appName" `         # 开始菜单分组名称
-            --win-uninstall-display-name "$appName" ` # 卸载程序显示名称
-            --win-update-url "https://github.com/your-username/your-repo/releases" ` # 更新检查地址（替换为你的仓库）
-            --verbose `                           # 详细日志输出
-            --icon none `                         # 图标（可选：替换为.ico文件路径）
-            --main-jar $(Get-ChildItem -Path "$inputDir/*.jar" | Select-Object -First 1).Name ` # 自动获取主JAR包
-            --main-class $(mvn help:evaluate -Dexpression=project.mainClass -q -DforceStdout) ` # 从POM读取主类
+            --type exe `
+            --name "$appName" `
+            --version "$appVersion" `
+            --input "$inputDir" `
+            --dest "$outputDir" `
+            --vendor "$appVendor" `
+            --win-exe-name "$exeName" `
+            --win-shortcut `
+            --win-dir-chooser `
+            --win-menu `
+            --win-menu-group "$appName" `
+            --win-uninstall-display-name "$appName" `
+            --verbose `
+            --icon none `
+            --main-jar "$mainJar" `
+            --main-class "$mainClass"
 
-          # 4. 验证安装包生成
+          # 验证安装包
           $installerFile = Get-ChildItem -Path "$outputDir/$exeName" -ErrorAction SilentlyContinue
           if (-not $installerFile) {
             Write-Error "❌ 安装包生成失败！"
-            # 打印输出目录内容（调试）
             Get-ChildItem -Path "$outputDir" -Recurse | Format-Table Name, FullName, Length
             exit 1
           }
 
-          # 5. 保存安装包路径到环境变量
           echo "INSTALLER_PATH=$($installerFile.FullName)" >> $env:GITHUB_ENV
-          Write-Host "✅ jpackage生成安装包成功！"
-          Write-Host "📦 安装包路径：$($installerFile.FullName)"
-          Write-Host "📊 安装包大小：$([math]::Round($installerFile.Length / 1MB, 2)) MB"
+          Write-Host "✅ 安装包生成成功：$($installerFile.FullName)"
 
-      # 步骤9：上传产物1 - 转换后的独立EXE
+      # 上传产物
       - name: Upload Standalone EXE
         uses: actions/upload-artifact@v4
         with:
@@ -202,7 +216,6 @@ jobs:
           retention-days: 90
           if-no-files-found: error
 
-      # 步骤10：上传产物2 - jpackage生成的安装包
       - name: Upload Installer EXE (jpackage)
         uses: actions/upload-artifact@v4
         with:
@@ -211,7 +224,6 @@ jobs:
           retention-days: 90
           if-no-files-found: error
 
-      # 步骤11：上传原始app目录
       - name: Upload Raw app Directory
         uses: actions/upload-artifact@v4
         with:
