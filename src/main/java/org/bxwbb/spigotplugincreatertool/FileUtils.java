@@ -306,9 +306,7 @@ public class FileUtils {
         });
 
         // 添加完成事件监听器
-        executor.addCompletionListener(exitCode -> {
-            System.out.println("【完成事件】执行结束，退出码: " + exitCode);
-        });
+        executor.addCompletionListener(exitCode -> System.out.println("【完成事件】执行结束，退出码: " + exitCode));
 
         // 执行BAT
         executor.executeBatAsync(batPath);
