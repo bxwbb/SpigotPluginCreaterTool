@@ -1,4 +1,4 @@
-name: Windows + JDK21 + BAT转EXE + 生成安装包
+name: 构建+BAT转EXE+压缩上传
 
 on:
   push:
@@ -6,15 +6,17 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-exe-and-installer:
+  build-and-package:
     runs-on: windows-latest
-    timeout-minutes: 40
+    timeout-minutes: 30
     steps:
+      # 步骤1：检出代码
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
+      # 步骤2：配置JDK 21
       - name: Setup JDK 21
         uses: actions/setup-java@v4
         with:
@@ -23,290 +25,183 @@ jobs:
           architecture: x64
           cache: 'maven'
 
-      - name: Build & Generate app.zip
-        id: build-jlink
+      # 步骤3：执行mvn package
+      - name: Run mvn package
+        id: run-package
         shell: pwsh
         run: |
           $env:MAVEN_OPTS = "-Dfile.encoding=UTF-8 -Dsun.jnu.encoding=UTF-8"
           echo "MAVEN_OPTS=$env:MAVEN_OPTS" >> $env:GITHUB_ENV
           
-          Write-Host "📦 执行Maven clean package..."
+          Write-Host "📦 执行 mvn clean package -DskipTests=true"
           mvn clean package -DskipTests=true
           if ($LASTEXITCODE -ne 0) {
-            Write-Error "❌ Maven package 构建失败！"
+            Write-Error "❌ mvn package 失败！"
             exit 1
           }
-          
-          Write-Host "🔗 执行JavaFX jlink生成自定义JRE..."
-          mvn javafx:jlink -DskipTests=true
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "❌ Maven javafx:jlink 执行失败！"
-            exit 1
-          }
-          
-          $zipPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "target/app.zip"
-          if (-not (Test-Path $zipPath)) {
-            $zipPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "target/image.zip"
-            if (-not (Test-Path $zipPath)) {
-              Write-Error "❌ 未找到app.zip/image.zip！构建产物缺失"
-              Write-Host "📂 Target目录完整内容："
-              Get-ChildItem -Path "target" -Recurse | Format-Table Name, FullName, Length
-              exit 1
-            }
-            Write-Warning "⚠️ 找到image.zip，自动重命名为app.zip"
-            Copy-Item -Path $zipPath -Destination "target/app.zip" -Force
-            $zipPath = "target/app.zip"
-          }
-          Write-Host "✅ app.zip 生成成功：$zipPath"
-          Get-Item $zipPath | Format-List Name, Length, LastWriteTime
+          Write-Host "✅ mvn package 成功"
 
-      - name: Unzip app.zip & Find Launch Script
-        id: unzip-app
+      # 步骤4：执行javafx:jlink
+      - name: Run javafx:jlink
+        id: run-jlink
         shell: pwsh
         run: |
-          $appDir = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "target/app"
-          
-          if (Test-Path $appDir) {
-            Remove-Item -Path $appDir -Recurse -Force -ErrorAction Stop
-            Write-Host "ℹ️ 清理旧的app目录完成"
-          }
-          
-          New-Item -Path $appDir -ItemType Directory -Force | Out-Null
-          Expand-Archive -Path "target/app.zip" -DestinationPath $appDir -Force -ErrorAction Stop
-          Write-Host "✅ app.zip 解压完成，目标目录：$appDir"
-          
-          Write-Host "📂 app目录完整结构："
-          Get-ChildItem -Path $appDir -Recurse | Format-Table Name, FullName, Length, Extension
-          
-          $launchScripts = Get-ChildItem -Path $appDir -Recurse `
-            -Include *.bat, *.cmd `
-            -ErrorAction SilentlyContinue | Where-Object {
-              $_.Name -match "app|Spigot|start|launch" -or $_.Directory.Name -eq "bin"
-            }
-          
-          if ($launchScripts.Count -eq 0) {
-            Write-Error "❌ 未找到任何启动脚本（BAT/CMD）！"
+          Write-Host "🔗 执行 mvn javafx:jlink -DskipTests=true"
+          mvn javafx:jlink -DskipTests=true
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "❌ javafx:jlink 失败！"
             exit 1
           }
-          
-          $launchScript = $launchScripts[0]
-          echo "ORIGINAL_SCRIPT_PATH=$($launchScript.FullName)" >> $env:GITHUB_ENV
-          echo "APP_BIN_DIR=$($launchScript.Directory.FullName)" >> $env:GITHUB_ENV
-          Write-Host "✅ 找到启动脚本：$($launchScript.FullName)"
-          Write-Host "📄 脚本类型：$($launchScript.Extension)"
+          Write-Host "✅ javafx:jlink 成功"
 
-      # ======================== 修复下载问题：改用curl + 关闭进度条 ========================
+      # 步骤5：下载便携版BAT to EXE Converter（解决Chocolatey下架问题）
       - name: Download BAT to EXE Converter (Portable)
         id: download-bat2exe
         shell: pwsh
         run: |
-          # 关键修复1：关闭PowerShell进度条（大幅提升下载稳定性）
           $ProgressPreference = 'SilentlyContinue'
-          
-          # 关键修复2：改用curl下载（替代Invoke-WebRequest）
           $toolDir = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "tools/bat2exe"
           $zipFile = Join-Path -Path $toolDir -ChildPath "bat2exe-converter.zip"
-          # 备用地址（优先使用GitHub镜像，避免SourceForge访问问题）
           $bat2exeUrls = @(
             "https://mirror.ghproxy.com/https://downloads.sourceforge.net/project/bat-to-exe-converter/bat2exe-converter.zip",
             "https://downloads.sourceforge.net/project/bat-to-exe-converter/bat2exe-converter.zip"
           )
-          
+
           # 创建工具目录
-          if (-not (Test-Path $toolDir)) {
-            New-Item -Path $toolDir -ItemType Directory -Force | Out-Null
-          }
-          
-          # 循环重试下载（多地址容错）
+          if (-not (Test-Path $toolDir)) { New-Item -Path $toolDir -ItemType Directory -Force | Out-Null }
+
+          # 循环下载
           $downloadSuccess = $false
           foreach ($url in $bat2exeUrls) {
             try {
               Write-Host "📥 尝试下载：$url"
-              # 使用curl下载（Windows内置，更稳定）
               curl -L -o "$zipFile" "$url" --connect-timeout 30 --max-time 300
-          
-              # 验证下载文件
               if (Test-Path $zipFile -and (Get-Item $zipFile).Length -gt 0) {
                 $downloadSuccess = $true
-                Write-Host "✅ 下载成功：$zipFile"
                 break
-              } else {
-                Write-Warning "⚠️ 下载文件为空，尝试下一个地址"
-                if (Test-Path $zipFile) { Remove-Item $zipFile -Force }
               }
-            } catch {
-              Write-Warning "⚠️ 下载失败：$_，尝试下一个地址"
-              if (Test-Path $zipFile) { Remove-Item $zipFile -Force }
-            }
+            } catch { Write-Warning "⚠️ 下载失败：$_" }
           }
-          
-          # 检查下载结果
+
           if (-not $downloadSuccess) {
-            Write-Error "❌ 所有地址下载BAT to EXE Converter失败！"
+            Write-Error "❌ BAT to EXE Converter 下载失败！"
             exit 1
           }
-          
-          # 解压工具
+
+          # 解压并查找bat2exe.exe
           Expand-Archive -Path $zipFile -DestinationPath $toolDir -Force
-          
-          # 查找bat2exe.exe
           $bat2exeExe = Get-ChildItem -Path $toolDir -Recurse -Name "bat2exe.exe" | Select-Object -First 1
           if ([string]::IsNullOrEmpty($bat2exeExe)) {
-            Write-Error "❌ 未找到bat2exe.exe！解压后的工具目录："
-            Get-ChildItem -Path $toolDir -Recurse | Format-Table Name, FullName
+            Write-Error "❌ 未找到bat2exe.exe！"
             exit 1
           }
-          
+
           $bat2exePath = Join-Path -Path $toolDir -ChildPath $bat2exeExe
           echo "BAT2EXE_PATH=$bat2exePath" >> $env:GITHUB_ENV
-          Write-Host "✅ BAT to EXE Converter准备完成：$bat2exePath"
+          Write-Host "✅ BAT to EXE Converter 准备完成：$bat2exePath"
 
-      - name: Convert Launch Script to EXE
-        id: convert-script
+      # 步骤6：将target/app/bin/app.bat转为SpigotPluginCreaterTool.exe
+      - name: Convert app.bat to SpigotPluginCreaterTool.exe
+        id: convert-bat
         shell: pwsh
         run: |
-          $exeName = "我的世界spigot开发工具.exe"
-          $exePath = Join-Path -Path $env:APP_BIN_DIR -ChildPath $exeName
-          $developer = "BXWBB"
-          $productName = "我的世界spigot开发工具"
+          # 定义路径
+          $batPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "target/app/bin/app.bat"
+          $exePath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "target/app/bin/SpigotPluginCreaterTool.exe"
 
-          Write-Host "🔄 转换启动脚本为EXE：$($env:ORIGINAL_SCRIPT_PATH) → $exePath"
+          # 检查BAT文件是否存在
+          if (-not (Test-Path $batPath)) {
+            Write-Error "❌ 未找到 $batPath 文件！"
+            exit 1
+          }
+
+          # 执行转换
+          Write-Host "🔄 转换 BAT → EXE：$batPath → $exePath"
           & "$env:BAT2EXE_PATH" `
-            --bat "$env:ORIGINAL_SCRIPT_PATH" `
+            --bat "$batPath" `
             --exe "$exePath" `
-            --author "$developer" `
-            --product "$productName" `
-            --description "Spigot插件开发辅助工具（基于JDK21+JavaFX）" `
+            --author "BXWBB" `
+            --product "SpigotPluginCreaterTool" `
+            --description "Spigot插件开发工具" `
             --noconsole `
             --unicode `
             --admin 0 `
             --icon none
 
+          # 验证转换结果
           if (Test-Path $exePath) {
-            echo "APP_EXE_NAME=$exeName" >> $env:GITHUB_ENV
-            echo "APP_NAME=$productName" >> $env:GITHUB_ENV
-            Write-Host "✅ 脚本转EXE成功！"
-            Get-Item $exePath | Format-List Name, Length, FullName, CreationTime
+            Write-Host "✅ EXE生成成功：$exePath"
+            Get-Item $exePath | Format-List Name, Length, FullName
           } else {
-            Write-Error "❌ BAT转EXE失败！"
-            Get-ChildItem -Path $env:APP_BIN_DIR -Recurse | Format-Table Name, FullName, Length
+            Write-Error "❌ EXE生成失败！"
             exit 1
           }
 
-      - name: Get Project Version
-        id: get-version
+      # 步骤7：删除target/app.zip（按之前要求）
+      - name: Delete app.zip
         shell: pwsh
         run: |
-          $env:MAVEN_OPTS = "-Dfile.encoding=UTF-8"
-          try {
-            $version = mvn help:evaluate -Dexpression=project.version -q -DforceStdout 2>&1
-            if ($version -match "^\d+\.\d+\.\d+(-\w+)?$" -and -not $version.Contains("ERROR")) {
-              Write-Host "✅ 从POM读取版本号成功：$version"
-            } else {
-              throw "版本号格式无效：$version"
-            }
-          } catch {
-            $version = "1.0.0"
-            Write-Warning "⚠️ 读取POM版本失败，使用兜底版本：$version"
+          $appZipPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "target/app.zip"
+          if (Test-Path $appZipPath) {
+            Write-Host "🗑️ 删除 $appZipPath"
+            Remove-Item -Path $appZipPath -Force
+            Write-Host "✅ 删除成功"
+          } else {
+            Write-Host "ℹ️ 未找到app.zip，无需删除"
           }
-          echo "VERSION=$version" >> $env:GITHUB_ENV
-          Write-Host "📌 最终使用版本号：$version"
 
-      - name: Build Installer with jpackage
-        id: build-installer
+      # 步骤8：压缩target/app目录为SpigotPluginCreaterTool.zip（存到target目录）
+      - name: Compress target/app to SpigotPluginCreaterTool.zip
+        id: compress-app
         shell: pwsh
         run: |
-          if (-not (Get-Command "jpackage" -ErrorAction SilentlyContinue)) {
-            Write-Error "❌ jpackage命令未找到！请确认JDK21配置正确"
-            java -version
-            exit 1
-          }
-          Write-Host "ℹ️ jpackage版本：$(jpackage --version)"
+          # 定义路径
+          $appDir = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "target/app"
+          $zipPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "target/SpigotPluginCreaterTool.zip"
 
-          $appName = $env:APP_NAME
-          $appVersion = $env:VERSION
-          $appVendor = "BXWBB"
-          $inputDir = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "target/app/image"
-          $outputDir = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath "target"
-          $exeName = "$appName_v$appVersion-安装包.exe"
-
-          $jarFiles = Get-ChildItem -Path $inputDir -Recurse -Include *.jar | Where-Object {
-            -not $_.Name.Contains("javafx") -and -not $_.Name.Contains("module") -and -not $_.Name.Contains("jdk")
-          }
-          if ($jarFiles.Count -eq 0) {
-            Write-Error "❌ 未找到应用核心JAR包！"
-            exit 1
-          }
-          $mainJar = $jarFiles[0].Name
-          $mainJarPath = $jarFiles[0].DirectoryName
-          Write-Host "ℹ️ 找到应用JAR包：$mainJar（路径：$mainJarPath）"
-          
-          $manifestPath = "jar:$($jarFiles[0].FullName)!META-INF/MANIFEST.MF"
-          try {
-            $mainClass = (Get-Content -Path $manifestPath -ErrorAction Stop | Select-String -Pattern "Main-Class: " | ForEach-Object {
-              $_.Line -replace "Main-Class: ", ""
-            }).Trim()
-            if ([string]::IsNullOrEmpty($mainClass)) {
-              throw "Main-Class字段为空"
-            }
-            Write-Host "ℹ️ 从MANIFEST.MF读取主类：$mainClass"
-          } catch {
-            $mainClass = "org.bxwbb.SpigotPluginCreaterToolMain" # 替换为你的实际主类
-            Write-Warning "⚠️ 读取Main-Class失败，使用兜底主类：$mainClass"
-          }
-
-          Write-Host "🚀 开始生成Windows安装包..."
-          jpackage `
-            --type exe `
-            --name "$appName" `
-            --version "$appVersion" `
-            --input "$mainJarPath" `
-            --dest "$outputDir" `
-            --vendor "$appVendor" `
-            --win-exe-name "$exeName" `
-            --win-shortcut `
-            --win-dir-chooser `
-            --win-menu `
-            --win-menu-group "$appName" `
-            --win-uninstall-display-name "$appName" `
-            --verbose `
-            --icon none `
-            --main-jar "$mainJar" `
-            --main-class "$mainClass"
-
-          $installerFile = Get-ChildItem -Path "$outputDir/$exeName" -ErrorAction SilentlyContinue
-          if (-not $installerFile) {
-            Write-Error "❌ 安装包生成失败！"
-            Write-Host "📂 Output目录内容："
-            Get-ChildItem -Path "$outputDir" -Recurse | Format-Table Name, FullName, Length
+          # 检查app目录是否存在
+          if (-not (Test-Path $appDir)) {
+            Write-Error "❌ 未找到 $appDir 目录！"
             exit 1
           }
 
-          echo "INSTALLER_PATH=$($installerFile.FullName)" >> $env:GITHUB_ENV
-          Write-Host "✅ 安装包生成成功！"
-          Write-Host "📦 安装包路径：$($installerFile.FullName)"
-          Write-Host "📊 安装包大小：$([math]::Round($installerFile.Length / 1MB, 2)) MB"
+          # 压缩目录（覆盖已有文件）
+          Write-Host "📦 压缩 $appDir → $zipPath"
+          Compress-Archive -Path "$appDir/*" -DestinationPath $zipPath -Force
 
-      - name: Upload Standalone EXE
+          # 验证压缩包
+          if (Test-Path $zipPath) {
+            Write-Host "✅ 压缩包生成成功：$zipPath"
+            Write-Host "📊 压缩包大小：$([math]::Round((Get-Item $zipPath).Length / 1MB, 2)) MB"
+            echo "ZIP_PATH=$zipPath" >> $env:GITHUB_ENV
+          } else {
+            Write-Error "❌ 压缩包生成失败！"
+            exit 1
+          }
+
+      # 步骤9：上传target目录下所有JAR包
+      - name: Upload all JAR files
         uses: actions/upload-artifact@v4
         with:
-          name: 我的世界spigot开发工具-独立EXE
-          path: ${{ env.APP_BIN_DIR }}/${{ env.APP_EXE_NAME }}
+          name: 项目JAR包
+          path: |
+            ${{ github.workspace }}/target/*.jar
+            ${{ github.workspace }}/target/**/*.jar
+          retention-days: 90
+          if-no-files-found: warn
+
+      # 步骤10：上传SpigotPluginCreaterTool.zip压缩包
+      - name: Upload SpigotPluginCreaterTool.zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpigotPluginCreaterTool完整包
+          path: ${{ env.ZIP_PATH }}
           retention-days: 90
           if-no-files-found: error
 
-      - name: Upload Installer EXE
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.APP_NAME }}_v${{ env.VERSION }}-安装包
-          path: ${{ env.INSTALLER_PATH }}
-          retention-days: 90
-          if-no-files-found: error
-
-      - name: Upload Raw app Directory
-        uses: actions/upload-artifact@v4
-        with:
-          name: 原始app目录（含EXE+JRE）
-          path: target/app
-          retention-days: 30
-          if-no-files-found: error
+      # 可选：打印最终目录结构（调试）
+      - name: Show final target directory
+        shell: pwsh
+        run: |
+          Write-Host "📂 target目录最终内容："
+          Get-ChildItem -Path "$env:GITHUB_WORKSPACE/target" -Recurse | Format-Table Name, FullName, Length
