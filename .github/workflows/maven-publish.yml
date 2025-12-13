@@ -129,7 +129,7 @@ jobs:
       - name: Upload all JAR files
         uses: actions/upload-artifact@v4
         with:
-          name: 项目JAR包
+          name: SpigotPluginCreaterTool.jar
           path: |
             ${{ github.workspace }}/target/*.jar
             ${{ github.workspace }}/target/**/*.jar
@@ -140,7 +140,7 @@ jobs:
       - name: Upload SpigotPluginCreaterTool.zip
         uses: actions/upload-artifact@v4
         with:
-          name: SpigotPluginCreaterTool完整包
+          name: SpigotPluginCreaterTool.zip
           path: ${{ env.ZIP_PATH }}
           retention-days: 90
           if-no-files-found: error
