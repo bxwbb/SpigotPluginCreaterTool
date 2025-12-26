@@ -9,7 +9,7 @@ public abstract class BaseLabel {
     public double endX = 0;
     public double endY = 0;
     transient public Group root;
-    transient public Group base;
+    transient public Group base = new Group();
     public boolean visible = true;
 
     public abstract void resetPos(double x, double y);
@@ -20,11 +20,15 @@ public abstract class BaseLabel {
     public abstract double getWidth();
     public abstract double getHeight();
     public abstract void autoWidth();
-    public abstract void setVisible(boolean visible);
-    public abstract Object getData();
+    public abstract void setDisplayVisible(boolean visible);
+    public Object getData() {
+        return null;
+    }
     public abstract void setData(Object data) throws ClassNotFoundException;
     public abstract BaseLabel createNew() throws ClassNotFoundException;
-    public abstract Node.VarType getVarType();
+    public Node.VarType getVarType() {
+        return null;
+    }
 
     public void update() {
         this.resetPos(this.startX, this.startY);

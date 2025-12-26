@@ -110,7 +110,7 @@ public class NodeCreater {
         );
         List<NodeCtr.NodeGetOutput> getOutputs = getNodeGetOutputs(records2, methodInfo);
         for (Node.NodeCardNode rightCardNode : rightCardNodes) {
-            rightCardNode.edit.setVisible(false);
+            rightCardNode.edit.setDisplayVisible(false);
         }
         return new NodeCtr(
                 x,
@@ -171,7 +171,7 @@ public class NodeCreater {
         );
         List<NodeCtr.NodeGetOutput> getOutputs = getNodeGetOutputs(records2, fieldInfo);
         for (Node.NodeCardNode rightCardNode : rightCardNodes) {
-            rightCardNode.edit.setVisible(false);
+            rightCardNode.edit.setDisplayVisible(false);
         }
         return new NodeCtr(
                 x,
@@ -232,7 +232,7 @@ public class NodeCreater {
         );
         List<NodeCtr.NodeGetOutput> getOutputs = getNodeGetOutputs(records2, constructorInfo);
         for (Node.NodeCardNode rightCardNode : rightCardNodes) {
-            rightCardNode.edit.setVisible(false);
+            rightCardNode.edit.setDisplayVisible(false);
         }
         return new NodeCtr(
                 x,

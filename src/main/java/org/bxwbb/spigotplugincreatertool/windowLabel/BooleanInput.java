@@ -91,7 +91,7 @@ public class BooleanInput extends BaseLabel {
     }
 
     @Override
-    public void setVisible(boolean visible) {
+    public void setDisplayVisible(boolean visible) {
         this.visible = visible;
         this.checkBox.setDisable(!visible);
     }

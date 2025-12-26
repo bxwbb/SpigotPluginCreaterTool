@@ -6,7 +6,6 @@ import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.shape.Rectangle;
 import org.bxwbb.spigotplugincreatertool.HelloApplication;
-import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.Node;
 
 import java.util.Objects;
 
@@ -114,7 +113,7 @@ public class Button extends BaseLabel {
     public void autoWidth() {}
 
     @Override
-    public void setVisible(boolean visible) {
+    public void setDisplayVisible(boolean visible) {
         this.visible = visible;
         this.background.setFill(visible ? HelloApplication.UNSELECTED_COLOR : HelloApplication.DISABLED_COLOR);
         this.background.setStroke(!visible ? HelloApplication.UNSELECTED_BORDER_COLOR : HelloApplication.BORDER_COLOR);
@@ -140,8 +139,4 @@ public class Button extends BaseLabel {
         return new Button(this.startX, this.startY, this.endX, this.endY, this.hasBorder);
     }
 
-    @Override
-    public Node.VarType getVarType() {
-        return null;
-    }
 }

@@ -663,7 +663,7 @@ public class SearchBox extends BaseLabel {
     }
 
     @Override
-    public void setVisible(boolean visible) {
+    public void setDisplayVisible(boolean visible) {
 
     }
 

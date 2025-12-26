@@ -365,7 +365,7 @@ public class HelloApplication extends Application {
                                                         nodeEditor.removeConnectingDataLine(nodeEditor.focusNode.leftDataLines.get(r));
                                                     }
                                                     nodeEditor.focusNode.leftDataLines.set(r, cl);
-                                                    nodeEditor.focusNode.leftCardNodes.get(r).edit.setVisible(false);
+                                                    nodeEditor.focusNode.leftCardNodes.get(r).edit.setDisplayVisible(false);
                                                     nodeEditor.focusNode.leftDataPointList.set(r, new Node.DataLinePoint(nodeEditor.nodesCtr.get(nodeEditor.nodes.indexOf(node)), index));
                                                     node.rightDataLines.get(index).add(cl);
                                                     nodeEditor.focusNode.resetPos((float) nodeEditor.focusNode.startX, (float) nodeEditor.focusNode.startY);
@@ -401,7 +401,7 @@ public class HelloApplication extends Application {
                                                         if (node.leftDataLines.get(index) != null)
                                                             nodeEditor.removeConnectingDataLine(node.leftDataLines.get(index));
                                                         node.leftDataLines.set(index, cl);
-                                                        node.leftCardNodes.get(index).edit.setVisible(false);
+                                                        node.leftCardNodes.get(index).edit.setDisplayVisible(false);
                                                         NodeCtr nc = nodeEditor.nodesCtr.get(nodeEditor.nodes.indexOf(nodeEditor.focusNode));
                                                         node.leftDataPointList.set(index, new Node.DataLinePoint(nc, r));
                                                         nodeEditor.focusNode.resetPos((float) nodeEditor.focusNode.startX, (float) nodeEditor.focusNode.startY);
@@ -422,7 +422,7 @@ public class HelloApplication extends Application {
                                                         }
                                                         ((Rectangle) node.leftCardNodes.get(index).point.getChildren().getFirst()).setHeight(14 + ((((SelfAdaptionListSlider) node.leftCardNodes.get(index).edit).dataLines.size()) - 1) * 10);
                                                         ((SelfAdaptionListSlider) node.leftCardNodes.get(index).edit).setStartIndex(-1);
-                                                        node.leftCardNodes.get(index).edit.setVisible(false);
+                                                        node.leftCardNodes.get(index).edit.setDisplayVisible(false);
                                                         nodeEditor.focusNode.resetPos((float) nodeEditor.focusNode.startX, (float) nodeEditor.focusNode.startY);
                                                         node.resetPos((float) node.startX, (float) node.startY);
                                                         node.addTo();

@@ -111,7 +111,7 @@ public class PathInputBox extends BaseLabel {
     }
 
     @Override
-    public void setVisible(boolean visible) {
+    public void setDisplayVisible(boolean visible) {
 
     }
 

@@ -178,7 +178,7 @@ public class WaveLineLabel extends BaseLabel  {
     }
 
     @Override
-    public void setVisible(boolean visible) {
+    public void setDisplayVisible(boolean visible) {
         this.visible = visible;
         if (wavePath != null) {
             wavePath.setVisible(visible);

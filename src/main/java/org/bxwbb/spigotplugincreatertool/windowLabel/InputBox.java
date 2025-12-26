@@ -124,7 +124,7 @@ public class InputBox extends BaseLabel {
     }
 
     @Override
-    public void setVisible(boolean visible) {
+    public void setDisplayVisible(boolean visible) {
         this.visible = visible;
         this.textField.setVisible(visible);
         this.background.setFill(visible ? HelloApplication.UNSELECTED_COLOR : HelloApplication.DISABLED_COLOR);

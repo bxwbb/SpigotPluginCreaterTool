@@ -232,7 +232,7 @@ public class MinecraftServerTypeSearchBox extends BaseLabel {
     }
 
     @Override
-    public void setVisible(boolean visible) {
+    public void setDisplayVisible(boolean visible) {
 
     }
 

@@ -119,7 +119,7 @@ public class SelfAdaptionListSlider extends BaseLabel {
         this.sliderLongs.getLast().setName(name + "[" + (this.sliderLongs.size() - 1) + "]");
         this.sliderLongs.getLast().setData(this.sliderLongs.get(this.sliderLongs.size() - 2).getData());
         this.sliderLongs.getLast().addTo(this.sliderGroup);
-        this.sliderLongs.getLast().setVisible(this.visible);
+        this.sliderLongs.getLast().setDisplayVisible(this.visible);
         this.update();
     }
 
@@ -134,7 +134,7 @@ public class SelfAdaptionListSlider extends BaseLabel {
         this.sliderLongs.getLast().setName(name + "[" + (this.sliderLongs.size() - 1) + "]");
         this.sliderLongs.getLast().setData(this.sliderLongs.get(this.sliderLongs.size() - 2).getData());
         this.sliderLongs.getLast().addTo(this.sliderGroup);
-        this.sliderLongs.getLast().setVisible(this.visible);
+        this.sliderLongs.getLast().setDisplayVisible(this.visible);
     }
 
     public void removeDataLine(ConnectingLine connectingLine) {
@@ -153,7 +153,7 @@ public class SelfAdaptionListSlider extends BaseLabel {
         this.sliderLongs.get(index).setName(name + "[" + index + "]");
         this.sliderLongs.get(index).setData(this.sliderLongs.get(this.sliderLongs.size() - 2).getData());
         this.sliderLongs.get(index).addTo(this.sliderGroup);
-        this.sliderLongs.get(index).setVisible(this.visible);
+        this.sliderLongs.get(index).setDisplayVisible(this.visible);
         for (int i = index + 1; i < this.sliderLongs.size(); i++) {
             this.sliderLongs.get(i).setName(name + "[" + i + "]");
         }
@@ -194,7 +194,7 @@ public class SelfAdaptionListSlider extends BaseLabel {
         }
         if (!this.dataLines.isEmpty()) {
             for (BaseLabel sliderLong : this.sliderLongs) {
-                sliderLong.setVisible(false);
+                sliderLong.setDisplayVisible(false);
             }
         }
     }
@@ -271,10 +271,10 @@ public class SelfAdaptionListSlider extends BaseLabel {
     }
 
     @Override
-    public void setVisible(boolean visible) {
+    public void setDisplayVisible(boolean visible) {
         this.visible = visible;
         for (BaseLabel sliderLong : this.sliderLongs) {
-            sliderLong.setVisible(visible);
+            sliderLong.setDisplayVisible(visible);
         }
     }
 
@@ -313,7 +313,7 @@ public class SelfAdaptionListSlider extends BaseLabel {
             sl.getLast().setName(name + "[" + (i) + "]");
             sl.getLast().setData(dataList.get(i));
             sl.getLast().addTo(this.sliderGroup);
-            sl.getLast().setVisible(this.visible);
+            sl.getLast().setDisplayVisible(this.visible);
         }
         for (BaseLabel sliderLong : this.sliderLongs) {
             sliderLong.delete();

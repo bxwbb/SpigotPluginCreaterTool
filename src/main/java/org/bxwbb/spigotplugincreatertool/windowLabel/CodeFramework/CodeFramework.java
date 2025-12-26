@@ -1,6 +1,8 @@
 package org.bxwbb.spigotplugincreatertool.windowLabel.CodeFramework;
 
 import javafx.scene.Group;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.Paint;
 import javafx.scene.shape.Line;
@@ -10,7 +12,6 @@ import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
 import org.bxwbb.spigotplugincreatertool.HelloApplication;
-import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.Node;
 import org.bxwbb.spigotplugincreatertool.windowLabel.BaseLabel;
 
 import java.util.*;
@@ -34,14 +35,16 @@ public class CodeFramework extends BaseLabel {
     // 光标颜色
     public static Paint CURSOR_COLOR = Color.rgb(230, 230, 230);
 
+    // 字体大小
+    public static int FONT_SIZE = 14;
     public static Font codeFont = Font.font(
             "Consolas",
-            14
+            FONT_SIZE
     );
     public static Font lineFont = Font.font(
             "Consolas",
             FontWeight.BOLD,
-            14
+            FONT_SIZE
     );
 
     // 上下位移比率
@@ -159,19 +162,15 @@ public class CodeFramework extends BaseLabel {
         this.tokenFixer.splitCode();
         this.textFlow.getChildren().remove(this.tokenFixer.head.text);
         this.tokenFixer.head = this.tokenFixer.head.getNext();
-        CodeToken token = tokenFixer.getHead();
+        CodeToken token;
         for (TokenShader tokenShader : this.tokenShaders) {
             tokenShader.reset();
         }
         this.textFlow.setLayoutX(this.startX + this.lineText.getLayoutBounds().getWidth() + 15 + XOffset);
         this.textFlow.setLayoutY(this.startY + lineOffset + 2);
-        while (token != null) {
-            token.setFont(codeFont);
-            token = token.getNext();
-        }
         token = tokenFixer.getHead();
         while (token != null) {
-            token.updateTestBackground();
+            token.setFont(codeFont);
             token = token.getNext();
         }
         token = tokenFixer.getHead();
@@ -179,6 +178,11 @@ public class CodeFramework extends BaseLabel {
             for (TokenShader tokenShader : this.tokenShaders) {
                 tokenShader.shader(token, this);
             }
+            token = token.getNext();
+        }
+        token = tokenFixer.getHead();
+        while (token != null) {
+            token.updateTestBackground();
             token = token.getNext();
         }
     }
@@ -205,6 +209,7 @@ public class CodeFramework extends BaseLabel {
         this.base.getChildren().addFirst(this.lineTextLine);
         this.base.getChildren().addFirst(this.lineText);
         this.base.getChildren().addFirst(this.mainCursor.cursor);
+//        this.base.getChildren().addFirst(this.textFlow);
         this.base.getChildren().addFirst(this.textFlow);
         this.base.getChildren().addFirst(this.background);
         this.root.getChildren().add(this.base);
@@ -231,7 +236,7 @@ public class CodeFramework extends BaseLabel {
     }
 
     @Override
-    public void setVisible(boolean visible) {
+    public void setDisplayVisible(boolean visible) {
 
     }
 
@@ -248,11 +253,6 @@ public class CodeFramework extends BaseLabel {
     @Override
     public BaseLabel createNew() throws ClassNotFoundException {
         return new CodeFramework(this.startX, this.startY, this.endX - this.startX, this.endY - this.startY, this.tokenFixer, this.tokenShaders);
-    }
-
-    @Override
-    public Node.VarType getVarType() {
-        return null;
     }
 
     public Cursor getMainCursor() {

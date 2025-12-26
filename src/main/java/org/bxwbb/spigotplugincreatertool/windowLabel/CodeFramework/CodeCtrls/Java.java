@@ -91,7 +91,6 @@ public class Java extends TokenShader {
 
     @Override
     public void shader(CodeToken token, CodeFramework codeFramework) {
-//        Random random = new Random();
         if (token.getValue().isEmpty()) return;
         if (token.getValue().charAt(0) == '\\') {
             token.setColor(CodeFramework.KEY_WORD_COLOR);
@@ -101,11 +100,11 @@ public class Java extends TokenShader {
         } else if (Pattern.matches("#[0-9a-fA-F]{6}", token.getValue())) {
             // 将颜色代码转换为颜色
             token.setColor(Color.web(token.getValue()));
-            Rectangle rectangle = new Rectangle(0, -2, token.getText().getLayoutBounds().getHeight(), token.getText().getLayoutBounds().getHeight());
+            Rectangle rectangle = new Rectangle(0, -2, token.getText().getLayoutBounds().getHeight(), token.getText().getLayoutBounds().getHeight() * 10);
             rectangle.setFill(Color.web(token.getValue()));
             rectangle.setArcWidth(HelloApplication.ROUNDNESS);
             rectangle.setArcHeight(HelloApplication.ROUNDNESS);
-            token.getBase().getChildren().add(rectangle);
+            token.addNodeBack(rectangle);
             token.setText(token.getValue());
         } else if (stringMode) {
             token.setColor(CodeFramework.STRING_COLOR);
@@ -185,7 +184,6 @@ public class Java extends TokenShader {
         } else if (annotationMode) {
             token.setColor(CodeFramework.ANNOTATION_COLOR);
         } else {
-//            token.setColor(Color.rgb(random.nextInt(255), random.nextInt(255), random.nextInt(255)));
             token.setColor(CodeFramework.CODE_COLOR);
         }
     }
@@ -198,4 +196,5 @@ public class Java extends TokenShader {
         line.setStrokeWidth(1);
         return line;
     }
+
 }

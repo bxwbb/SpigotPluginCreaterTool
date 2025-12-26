@@ -402,7 +402,7 @@ public class NodeEditor extends MinWindowType {
         for (Node node : this.nodes) {
             if (node.leftDataLines.contains(connectingLine)) {
                 node.leftDataPointList.set(node.leftDataLines.indexOf(connectingLine), null);
-                node.leftCardNodes.get(node.leftDataLines.indexOf(connectingLine)).edit.setVisible(true);
+                node.leftCardNodes.get(node.leftDataLines.indexOf(connectingLine)).edit.setDisplayVisible(true);
                 node.leftDataLines.set(node.leftDataLines.indexOf(connectingLine), null);
             }
             for (List<ConnectingLine> cl : node.rightDataLines) {
@@ -759,7 +759,7 @@ public class NodeEditor extends MinWindowType {
                         r.get(dataPointLines.getJSONObject(k).getString("node")).node.rightDataLines.get(dataPointLines.getJSONObject(k).getIntValue("index")).add(connectingLine);
                         slider.dataLines.set(k, connectingLine);
                         connectingLine.addTo(root);
-                        nodeCtr.node.leftCardNodes.get(j).edit.setVisible(false);
+                        nodeCtr.node.leftCardNodes.get(j).edit.setDisplayVisible(false);
                     }
                     ((Rectangle) nodeCtr.node.leftCardNodes.get(j).point.getChildren().getFirst()).setHeight(14 + (((slider).dataLines.size()) - 1) * 10);
                 } else {
@@ -785,7 +785,7 @@ public class NodeEditor extends MinWindowType {
                     right.rightDataLines.get(dataPointJsonObject.getIntValue("index")).add(connectingLine);
                     nodeCtr.node.leftDataLines.set(j, connectingLine);
                     connectingLine.addTo(root);
-                    nodeCtr.node.leftCardNodes.get(j).edit.setVisible(false);
+                    nodeCtr.node.leftCardNodes.get(j).edit.setDisplayVisible(false);
                 }
             }
         }

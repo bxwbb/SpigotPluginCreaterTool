@@ -94,7 +94,7 @@ public class ConnectingLine extends BaseLabel {
     }
 
     @Override
-    public void setVisible(boolean visible) {
+    public void setDisplayVisible(boolean visible) {
         this.visible = visible;
     }
 

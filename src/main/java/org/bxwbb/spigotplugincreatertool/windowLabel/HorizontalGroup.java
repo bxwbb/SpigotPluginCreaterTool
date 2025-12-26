@@ -115,7 +115,7 @@ public class HorizontalGroup extends BaseLabel {
     }
 
     @Override
-    public void setVisible(boolean visible) {
+    public void setDisplayVisible(boolean visible) {
 
     }
 

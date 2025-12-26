@@ -196,10 +196,10 @@ public class ListSlider extends BaseLabel {
     }
 
     @Override
-    public void setVisible(boolean visible) {
+    public void setDisplayVisible(boolean visible) {
         this.visible = visible;
         for (BaseLabel sliderLong : this.sliderLongs) {
-            sliderLong.setVisible(visible);
+            sliderLong.setDisplayVisible(visible);
         }
     }
 
@@ -221,7 +221,7 @@ public class ListSlider extends BaseLabel {
             sl.getLast().setName(name + "[" + (i) + "]");
             sl.getLast().setData(dataList.get(i));
             sl.getLast().addTo(this.sliderGroup);
-            sl.getLast().setVisible(this.visible);
+            sl.getLast().setDisplayVisible(this.visible);
         }
         for (BaseLabel sliderLong : this.sliderLongs) {
             sliderLong.delete();

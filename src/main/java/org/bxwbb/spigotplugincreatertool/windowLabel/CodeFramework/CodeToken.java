@@ -1,6 +1,7 @@
 package org.bxwbb.spigotplugincreatertool.windowLabel.CodeFramework;
 
 import javafx.scene.Group;
+import javafx.scene.Node;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.Paint;
 import javafx.scene.shape.Rectangle;
@@ -11,6 +12,7 @@ import org.bxwbb.spigotplugincreatertool.windowLabel.WaveLineLabel;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 public class CodeToken {
 
@@ -20,9 +22,9 @@ public class CodeToken {
     private CodeToken next;
     private final List<CodeToken> linkedTokens;
     // 前基组
-    private final Group base;
+    private final List<Node> base;
     // 后基组
-    private final Group nextBase;
+    private final List<Node> nextBase;
     private final Group root;
     private final Group baseBase;
     protected Text text;
@@ -43,14 +45,14 @@ public class CodeToken {
         }
         this.linkedTokens = new ArrayList<>();
         this.root = root;
-        this.base = new Group();
-        this.textFlow.getChildren().add(this.textFlow.getChildren().indexOf(this.text), this.base);
-        this.nextBase = new Group();
-        this.textFlow.getChildren().add(this.nextBase);
+        this.base = new ArrayList<>();
+//        this.textFlow.getChildren().add(this.textFlow.getChildren().indexOf(this.text), this.base);
+        this.nextBase = new ArrayList<>();
         this.baseBase = new Group();
         this.root.getChildren().add(this.baseBase);
-        this.testBackground = new Rectangle(0,0,0,0);
-        this.testBackground.setFill(Color.color(1,0,0,0.2)); // 填充透明
+        this.testBackground = new Rectangle(0, 0, 0, 0);
+        Random random = new Random();
+        this.testBackground.setFill(Color.color(random.nextDouble(), random.nextDouble(), random.nextDouble(), 0.4)); // 填充透明
         this.testBackground.setStroke(Color.TRANSPARENT); // 边框透明（若需要边框可改为其他颜色，如 Color.GRAY）
         this.testBackground.setStrokeWidth(0); // 边框宽度设为0（彻底透明）
         this.testBackground.setOnMouseClicked(event -> {
@@ -76,12 +78,48 @@ public class CodeToken {
         return next;
     }
 
-    public Group getBase() {
-        return base;
+    /**
+     * 在token之前增加节点
+     *
+     * @param node 节点
+     */
+    public void addNodeFront(Node node) {
+        this.base.add(node);
+        this.textFlow.getChildren().add(this.textFlow.getChildren().indexOf(this.text), node);
+        this.textFlow.requestLayout();
     }
 
-    public Group getNextBase() {
-        return nextBase;
+    /**
+     * 在token之前删除节点
+     *
+     * @param node 节点
+     */
+    public void removeNodeFront(Node node) {
+        this.base.remove(node);
+        this.textFlow.getChildren().remove(node);
+        this.textFlow.requestLayout();
+    }
+
+    /**
+     * 在token之后增加节点
+     *
+     * @param node 节点
+     */
+    public void addNodeBack(Node node) {
+        this.nextBase.add(node);
+        this.textFlow.getChildren().add(this.textFlow.getChildren().indexOf(this.text) + 1 + this.nextBase.size(), node);
+        this.textFlow.requestLayout();
+    }
+
+    /**
+     * 在token之后删除节点
+     *
+     * @param node 节点
+     */
+    public void removeNodeBack(Node node) {
+        this.nextBase.remove(node);
+        this.textFlow.getChildren().remove(node);
+        this.textFlow.requestLayout();
     }
 
     public Group getBaseBase() {
@@ -93,13 +131,11 @@ public class CodeToken {
     }
 
     public double getLocalPositonX() {
-        this.text.getLayoutBounds();
-        return this.text.getLayoutX();
+        return this.text.getBoundsInParent().getMinX();
     }
 
     public double getLocalPositonY() {
-        this.text.getLayoutBounds();
-        return this.text.getLayoutY();
+        return this.text.getBoundsInParent().getMaxY()  - this.text.getLayoutBounds().getHeight();
     }
 
     public double getX() {
@@ -182,6 +218,7 @@ public class CodeToken {
     }
 
     public void updateTestBackground() {
+        this.text.getLayoutBounds();
         this.testBackground.setX(this.getX());
         this.testBackground.setY(this.getY());
         if (this.getNext() == null || this.getValue().equals("\n")) {

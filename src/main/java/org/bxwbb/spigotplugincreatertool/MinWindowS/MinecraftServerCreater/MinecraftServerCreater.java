@@ -268,7 +268,7 @@ public class MinecraftServerCreater extends MinWindowType {
 
         @Override
         protected Void call() throws InterruptedException {
-            this.labels.getLast().setVisible(false);
+            this.labels.getLast().setDisplayVisible(false);
             logger.info("开始下载服务器...");
             downloadServer(0);
             logger.info("开始生成启动脚本...");
@@ -279,7 +279,7 @@ public class MinecraftServerCreater extends MinWindowType {
         protected void downloadServer(int a) {
             if (a == MAX_RETRY_COUNT) {
                 logger.error("重试结束,下载服务器失败，请检查网络连接!");
-                this.labels.getLast().setVisible(true);
+                this.labels.getLast().setDisplayVisible(true);
                 return;
             }
             String versionId = ((TextButton) this.labels.get(0)).textLabel.getText();
@@ -295,7 +295,7 @@ public class MinecraftServerCreater extends MinWindowType {
                 } else {
                     if (version.equals("-")) {
                         logger.error("下载失败,请检查版本号是否正确");
-                        this.labels.getLast().setVisible(true);
+                        this.labels.getLast().setDisplayVisible(true);
                         return;
                     }
                     logger.warn("下载失败,正在重试");
@@ -303,14 +303,14 @@ public class MinecraftServerCreater extends MinWindowType {
                 }
             } else {
                 logger.error("暂不支持");
-                this.labels.getLast().setVisible(true);
+                this.labels.getLast().setDisplayVisible(true);
             }
         }
 
         protected void startServer(int a) {
             if (a == MAX_RETRY_COUNT) {
                 logger.error("重试结束,无法生成启动脚本,请手动生成");
-                this.labels.getLast().setVisible(true);
+                this.labels.getLast().setDisplayVisible(true);
                 return;
             }
             String versionId = ((TextButton) this.labels.get(0)).textLabel.getText();
@@ -365,7 +365,7 @@ public class MinecraftServerCreater extends MinWindowType {
                 } else {
                     if (version.equals("-")) {
                         logger.error("生成失败,请检查版本号是否正确");
-                        this.labels.getLast().setVisible(true);
+                        this.labels.getLast().setDisplayVisible(true);
                         return;
                     }
                     logger.warn("生成失败,正在重试");
@@ -373,7 +373,7 @@ public class MinecraftServerCreater extends MinWindowType {
                 }
             } else {
                 logger.error("暂不支持");
-                this.labels.getLast().setVisible(true);
+                this.labels.getLast().setDisplayVisible(true);
             }
         }
 

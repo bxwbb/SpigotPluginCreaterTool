@@ -119,7 +119,7 @@ public class Node {
                             ((NodeEditor) HelloApplication.cancelWindow.minWindowType).focusNode = this.leftDataPointList.get(finalI).nodeCtr.node;
                             this.leftDataPointList.set(finalI, null);
                             this.leftDataLines.set(finalI, null);
-                            this.leftCardNodes.get(finalI).edit.setVisible(true);
+                            this.leftCardNodes.get(finalI).edit.setDisplayVisible(true);
                         }
                     } else {
                         SelfAdaptionListSlider slider = (SelfAdaptionListSlider) this.leftCardNodes.get(finalI).edit;
@@ -446,9 +446,9 @@ public class Node {
     public void updateInput() throws ClassNotFoundException {
         for (int i = 0; i < this.leftDataPointList.size(); i++) {
             if (this.leftDataPointList.get(i) == null) {
-                this.leftCardNodes.get(i).edit.setVisible(true);
+                this.leftCardNodes.get(i).edit.setDisplayVisible(true);
             } else {
-                this.leftCardNodes.get(i).edit.setVisible(false);
+                this.leftCardNodes.get(i).edit.setDisplayVisible(false);
                 this.leftCardNodes.get(i).edit.setData(this.leftDataPointList.get(i).getData());
             }
         }
@@ -906,9 +906,9 @@ public class Node {
                 case SELF_ADAPTION_LIST ->
                         new SelfAdaptionListSlider(0, 0, 10, 10, "长整型列表-Long List", List.of("参数描述-Parameter description"), (List<BaseLabel>) data, VarType.LONG);
             };
-            baseLabel.setVisible(rightText);
+            baseLabel.setDisplayVisible(rightText);
             if (!rightText) {
-                baseLabel.setVisible(false);
+                baseLabel.setDisplayVisible(false);
             }
 
             return baseLabel;
