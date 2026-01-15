@@ -22,6 +22,8 @@ public class LabelTest extends Application {
         CodeFramework codeFramework = new CodeFramework(100, 100, 900, 800, new TokenFixer(), List.of(new Java()));
         codeFramework.addTo(root);
 
+
+
         // 设置舞台
         primaryStage.setTitle("代码编辑框显示测试");
         primaryStage.setScene(scene);

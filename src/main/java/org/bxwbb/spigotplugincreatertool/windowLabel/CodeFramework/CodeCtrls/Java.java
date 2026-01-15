@@ -139,28 +139,29 @@ public class Java extends TokenShader {
         } else if (token.getValue().equals("{")) {
             bracketBCount++;
             token.setColor(PAIR_COLORS[Math.abs(bracketBCount) % PAIR_COLORS.length]);
-            int index = 1;
-            boolean enter = false;
-            CodeToken temp = token;
-            while (index >= 1) {
-                temp = temp.getNext();
-                if (temp.getValue().equals("{")) {
-                    index++;
-                } else if (temp.getValue().equals("}")) {
-                    index--;
-                }
-                if (temp.getValue().equals("\n")) {
-                    enter = true;
-                }
-            }
-            if (!enter) return;
-            Line line = getLine(token, codeFramework, temp);
-            token.getBaseBase().getChildren().add(line);
         } else if (token.getValue().equals("}")) {
             token.setColor(PAIR_COLORS[Math.abs(bracketBCount) % PAIR_COLORS.length]);
             bracketBCount--;
             if (bracketBCount < 0) {
                 token.setErrorLine(true, CodeFramework.ERROR_COLOR);
+            } else {
+                int index = 1;
+                boolean enter = false;
+                CodeToken temp = token;
+                while (index >= 1) {
+                    temp = temp.getLast();
+                    if (temp.getValue().equals("{")) {
+                        index--;
+                    } else if (temp.getValue().equals("}")) {
+                        index++;
+                    }
+                    if (temp.getValue().equals("\n")) {
+                        enter = true;
+                    }
+                }
+                if (!enter) return;
+                Line line = getLine(token, codeFramework, temp);
+                token.getBaseBase().getChildren().add(line);
             }
         } else if (token.getValue().equals("[")) {
             bracketMCount++;
@@ -190,9 +191,10 @@ public class Java extends TokenShader {
 
     private Line getLine(CodeToken token, CodeFramework codeFramework, CodeToken temp) {
         double lineX = token.getFirstNonSpace().getX() - 2;
-        double lineY = token.getY() + token.getText().getLayoutBounds().getHeight();
-        Line line = new Line(lineX, lineY, lineX, codeFramework.textFlow.getLayoutY() + temp.getLocalPositonY());
-        line.setStroke(PAIR_COLORS[bracketBCount % PAIR_COLORS.length]);
+//        double lineY = token.getY() + token.getText().getLayoutBounds().getHeight();
+        double lineY = codeFramework.textFlow.getLayoutY() + temp.getLocalPositonY() + temp.getText().getLayoutBounds().getHeight();
+        Line line = new Line(lineX, lineY, lineX, token.getY());
+        line.setStroke(PAIR_COLORS[(bracketBCount + 1) % PAIR_COLORS.length]);
         line.setStrokeWidth(1);
         return line;
     }

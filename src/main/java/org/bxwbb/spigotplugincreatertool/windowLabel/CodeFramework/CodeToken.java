@@ -52,7 +52,7 @@ public class CodeToken {
         this.root.getChildren().add(this.baseBase);
         this.testBackground = new Rectangle(0, 0, 0, 0);
         Random random = new Random();
-        this.testBackground.setFill(Color.color(random.nextDouble(), random.nextDouble(), random.nextDouble(), 0.4)); // 填充透明
+        this.testBackground.setFill(Color.color(random.nextDouble(), random.nextDouble(), random.nextDouble(), 0.0)); // 填充透明
         this.testBackground.setStroke(Color.TRANSPARENT); // 边框透明（若需要边框可改为其他颜色，如 Color.GRAY）
         this.testBackground.setStrokeWidth(0); // 边框宽度设为0（彻底透明）
         this.testBackground.setOnMouseClicked(event -> {
