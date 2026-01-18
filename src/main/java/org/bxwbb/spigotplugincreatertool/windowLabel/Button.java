@@ -139,4 +139,8 @@ public class Button extends BaseLabel {
         return new Button(this.startX, this.startY, this.endX, this.endY, this.hasBorder);
     }
 
+    public void setMouseTransparent(boolean transparent) {
+
+    }
+
 }
