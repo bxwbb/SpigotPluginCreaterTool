@@ -326,7 +326,6 @@ public class FileUtils {
             logger.error("安装包或应用程序可能受损,具体体现为-无法找到文件{}", filePath);
             throw new RuntimeException("安装包或应用程序可能受损,具体体现为-无法找到文件" + filePath);
         }
-        logger.info("成功加载文件{}", filePath);
         return icon;
     }
 

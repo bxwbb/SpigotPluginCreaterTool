@@ -45,7 +45,7 @@ proc ttk::scale::Press {w x y} {
             set inc [expr {([$w get $x $y] <= [$w get]) ^ ([$w cget -from] > [$w cget -to]) ? -1 : 1}]
             ttk::Repeatedly Increment $w $inc
         }
-        *slider {
+        *verticalSlider {
             set State(dragging) 1
             set State(initial) [$w get]
         }
@@ -66,7 +66,7 @@ proc ttk::scale::Jump {w x y} {
             set State(dragging) 1
             set State(initial) [$w get]
         }
-        *slider {
+        *verticalSlider {
             Press $w $x $y
         }
     }

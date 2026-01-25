@@ -313,7 +313,7 @@ Builtin  render-timed nk:render-timed restore nk:restore rotate nk:rotate rotate
 Builtin  scale nk:scale scancode? nk:scancode? screen-saver nk:screen-saver screen-size nk:screen-size
 Builtin  screen-win-close nk:screen-win-close selectable nk:selectable set nk:set set-font nk:set-font
 Builtin  set-num-vertices nk:set-num-vertices set-radius nk:set-radius setpos nk:setpos setwin nk:setwin
-Builtin  show nk:show slider nk:slider slider-int nk:slider-int space nk:space spacing nk:spacing stroke-arc nk:stroke-arc
+Builtin  show nk:show verticalSlider nk:verticalSlider verticalSlider-int nk:verticalSlider-int space nk:space spacing nk:spacing stroke-arc nk:stroke-arc
 Builtin  stroke-circle nk:stroke-circle stroke-curve nk:stroke-curve stroke-line nk:stroke-line stroke-polygon nk:stroke-polygon
 Builtin  stroke-polyline nk:stroke-polyline stroke-rect nk:stroke-rect stroke-tri nk:stroke-tri style-from-table nk:style-from-table
 Builtin  swipe nk:swipe swipe-dir-threshold nk:swipe-dir-threshold swipe-threshold nk:swipe-threshold

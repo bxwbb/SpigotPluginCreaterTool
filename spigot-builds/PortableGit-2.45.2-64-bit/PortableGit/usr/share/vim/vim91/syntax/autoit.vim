@@ -796,7 +796,7 @@ syn match autoitStyle "\$TVS_SINGLEEXPAND"
 syn match autoitStyle "\$TVS_FULLROWSELECT"
 syn match autoitStyle "\$TVS_NOSCROLL"
 syn match autoitStyle "\$TVS_NONEVENHEIGHT"
-" slider
+" verticalSlider
 syn match autoitStyle "\$TBS_AUTOTICKS"
 syn match autoitStyle "\$TBS_BOTH"
 syn match autoitStyle "\$TBS_BOTTOM"

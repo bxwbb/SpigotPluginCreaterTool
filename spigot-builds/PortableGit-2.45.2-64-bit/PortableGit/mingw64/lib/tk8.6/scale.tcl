@@ -104,8 +104,8 @@ bind Scale <<LineEnd>> {
 
 # ::tk::ScaleActivate --
 # This procedure is invoked to check a given x-y position in the
-# scale and activate the slider if the x-y position falls within
-# the slider.
+# scale and activate the verticalSlider if the x-y position falls within
+# the verticalSlider.
 #
 # Arguments:
 # w -		The scale widget.
@@ -115,7 +115,7 @@ proc ::tk::ScaleActivate {w x y} {
     if {[$w cget -state] eq "disabled"} {
 	return
     }
-    if {[$w identify $x $y] eq "slider"} {
+    if {[$w identify $x $y] eq "verticalSlider"} {
 	set state active
     } else {
 	set state normal
@@ -145,7 +145,7 @@ proc ::tk::ScaleButtonDown {w x y} {
 	ScaleIncrement $w up little initial
     } elseif {$el eq "trough2"} {
 	ScaleIncrement $w down little initial
-    } elseif {$el eq "slider"} {
+    } elseif {$el eq "verticalSlider"} {
 	set Priv(dragging) 1
 	set Priv(initValue) [$w get]
 	set coords [$w coords]
@@ -160,7 +160,7 @@ proc ::tk::ScaleButtonDown {w x y} {
 
 # ::tk::ScaleDrag --
 # This procedure is called when the mouse is dragged with
-# mouse button 1 down.  If the drag started inside the slider
+# mouse button 1 down.  If the drag started inside the verticalSlider
 # (i.e. the scale is active) then the scale's value is adjusted
 # to reflect the mouse's position.
 #
@@ -178,7 +178,7 @@ proc ::tk::ScaleDrag {w x y} {
 
 # ::tk::ScaleEndDrag --
 # This procedure is called to end an interactive drag of the
-# slider.  It just marks the drag as over.
+# verticalSlider.  It just marks the drag as over.
 #
 # Arguments:
 # w -		The scale widget.
@@ -283,7 +283,7 @@ proc ::tk::ScaleControlPress {w x y} {
 # ::tk::ScaleButton2Down
 # This procedure is invoked when button 2 is pressed over a scale.
 # It sets the value to correspond to the mouse position and starts
-# a slider drag.
+# a verticalSlider drag.
 #
 # Arguments:
 # w -		The scrollbar widget.

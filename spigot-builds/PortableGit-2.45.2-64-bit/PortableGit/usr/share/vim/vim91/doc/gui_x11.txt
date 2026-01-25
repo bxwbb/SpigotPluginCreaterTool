@@ -74,7 +74,7 @@ version), a number of X resources are available.  You should use Vim's class
     background		Color of background.
     foreground		Color of normal text.
     scrollBackground	Color of trough portion of scrollbars.
-    scrollForeground	Color of slider and arrow portions of scrollbars.
+    scrollForeground	Color of verticalSlider and arrow portions of scrollbars.
     menuBackground	Color of menu backgrounds.
     menuForeground	Color of menu foregrounds.
     tooltipForeground	Color of tooltip and balloon foreground.

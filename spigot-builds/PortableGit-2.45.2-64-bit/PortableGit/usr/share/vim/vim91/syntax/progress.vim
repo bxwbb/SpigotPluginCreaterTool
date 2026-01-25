@@ -248,7 +248,7 @@ syn keyword ProgressOperator	set-connect-procedure set-contents set-db-client se
 syn keyword ProgressOperator	set-numeric-form[at] set-option set-output-destination set-parameter set-pointer-val[ue] set-property set-read-response-procedure
 syn keyword ProgressOperator	set-red[-value] set-repositioned-row set-rgb[-value] set-rollback set-selection set-serialized set-size set-socket-option
 syn keyword ProgressOperator	set-sort-arrow set-wait[-state] short show-in-task[bar] side-label-h[andle] side-lab[els] silent simple single single-character size
-syn keyword ProgressOperator	size-c[hars] size-p[ixels] skip-deleted-rec[ord] slider small-icon small-title smallint soap-fault soap-fault-actor
+syn keyword ProgressOperator	size-c[hars] size-p[ixels] skip-deleted-rec[ord] verticalSlider small-icon small-title smallint soap-fault soap-fault-actor
 syn keyword ProgressOperator	soap-fault-code soap-fault-detail soap-fault-string soap-header soap-header-entryref socket sort sort-ascending sort-number source
 syn keyword ProgressOperator	sql sqrt ssl-server-name standalone start-document start-element start[ing] startup-parameters state-detail static
 syn keyword ProgressOperator	status-area status-area-font stdcall stop stop-parsing stoppe[d] stored-proc[edure] stretch-to-fit strict string string-value

@@ -180,7 +180,7 @@ proc tk::ScrollButtonDown {w x y} {
     set Priv(relief) [$w cget -activerelief]
     $w configure -activerelief sunken
     set element [$w identify $x $y]
-    if {$element eq "slider"} {
+    if {$element eq "verticalSlider"} {
 	ScrollStartDrag $w $x $y
     } else {
 	ScrollSelect $w $element initial
@@ -215,7 +215,7 @@ proc ::tk::ScrollButtonUp {w x y} {
 # Arguments:
 # w -		The scrollbar widget.
 # element -	The element of the scrollbar that was selected, such
-#		as "arrow1" or "trough2".  Shouldn't be "slider".
+#		as "arrow1" or "trough2".  Shouldn't be "verticalSlider".
 # repeat -	Whether and how to auto-repeat the action:  "noRepeat"
 #		means don't auto-repeat, "initial" means this is the
 #		first action in an auto-repeat sequence, and "again"
@@ -244,8 +244,8 @@ proc ::tk::ScrollSelect {w element repeat} {
 }
 
 # ::tk::ScrollStartDrag --
-# This procedure is called to initiate a drag of the slider.  It just
-# remembers the starting position of the mouse and slider.
+# This procedure is called to initiate a drag of the verticalSlider.  It just
+# remembers the starting position of the mouse and verticalSlider.
 #
 # Arguments:
 # w -		The scrollbar widget.
@@ -272,7 +272,7 @@ proc ::tk::ScrollStartDrag {w x y} {
 }
 
 # ::tk::ScrollDrag --
-# This procedure is called for each mouse motion even when the slider
+# This procedure is called for each mouse motion even when the verticalSlider
 # is being dragged.  It notifies the associated widget if we're not
 # jump scrolling, and it just updates the scrollbar if we are jump
 # scrolling.
@@ -304,7 +304,7 @@ proc ::tk::ScrollDrag {w x y} {
 }
 
 # ::tk::ScrollEndDrag --
-# This procedure is called to end an interactive drag of the slider.
+# This procedure is called to end an interactive drag of the verticalSlider.
 # It scrolls the window if we're in jump mode, otherwise it does nothing.
 #
 # Arguments:
@@ -422,8 +422,8 @@ proc ::tk::ScrollTopBottom {w x y} {
 
 # ::tk::ScrollButton2Down
 # This procedure is invoked when button 2 is pressed over a scrollbar.
-# If the button is over the trough or slider, it sets the scrollbar to
-# the mouse position and starts a slider drag.  Otherwise it just
+# If the button is over the trough or verticalSlider, it sets the scrollbar to
+# the mouse position and starts a verticalSlider drag.  Otherwise it just
 # behaves the same as button 1.
 #
 # Arguments:
@@ -445,12 +445,12 @@ proc ::tk::ScrollButton2Down {w x y} {
 
     # Need the "update idletasks" below so that the widget calls us
     # back to reset the actual scrollbar position before we start the
-    # slider drag.
+    # verticalSlider drag.
 
     update idletasks
     if {[winfo exists $w]} {
         $w configure -activerelief sunken
-        $w activate slider
+        $w activate verticalSlider
         ScrollStartDrag $w $x $y
     }
 }

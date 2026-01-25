@@ -198,25 +198,25 @@ namespace eval ttk::theme::vista {
         }
 
         # Scale
-        ttk::style element create Horizontal.Scale.slider vsapi \
+        ttk::style element create Horizontal.Scale.verticalSlider vsapi \
             TRACKBAR 3 {disabled 5 focus 4 pressed 3 active 2 {} 1} \
             -width 6 -height 12
         ttk::style layout Horizontal.TScale {
             Scale.focus -sticky nswe -children {
                 Horizontal.Scale.trough -sticky nswe -children {
                     Horizontal.Scale.track -sticky we
-                    Horizontal.Scale.slider -side left -sticky {}
+                    Horizontal.Scale.verticalSlider -side left -sticky {}
                 }
             }
         }
-        ttk::style element create Vertical.Scale.slider vsapi \
+        ttk::style element create Vertical.Scale.verticalSlider vsapi \
             TRACKBAR 6 {disabled 5 focus 4 pressed 3 active 2 {} 1} \
             -width 12 -height 6
         ttk::style layout Vertical.TScale {
             Scale.focus -sticky nswe -children {
                 Vertical.Scale.trough -sticky nswe -children {
                     Vertical.Scale.track -sticky ns
-                    Vertical.Scale.slider -side top -sticky {}
+                    Vertical.Scale.verticalSlider -side top -sticky {}
                 }
             }
         }

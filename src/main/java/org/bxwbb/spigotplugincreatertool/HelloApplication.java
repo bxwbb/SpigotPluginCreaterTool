@@ -10,32 +10,21 @@ import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
-import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.scene.shape.Circle;
-import javafx.scene.shape.Rectangle;
-import javafx.scene.shape.Shape;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
-import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.CodeTool.JavaSourceScannerFixed;
-import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.Node;
-import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.NodeCtr;
-import org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor.NodeEditor;
-import org.bxwbb.spigotplugincreatertool.windowLabel.BaseLabel;
-import org.bxwbb.spigotplugincreatertool.windowLabel.ConnectingLine;
-import org.bxwbb.spigotplugincreatertool.windowLabel.SearchBox;
-import org.bxwbb.spigotplugincreatertool.windowLabel.SelfAdaptionListSlider;
+import org.bxwbb.spigotplugincreatertool.WindowLabel.Base.BaseLabel;
+import org.bxwbb.spigotplugincreatertool.WindowLabel.MinWindows.NodeEditor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -47,6 +36,8 @@ public class HelloApplication extends Application {
 
     // 背景颜色
     public static Color BG_COLOR = Color.color(0.1, 0.1, 0.1);
+    // 次背景颜色
+    public static Color UNSELECTED_MENU_COLOR = Color.color(0.3, 0.3, 0.3);
     // 用户界面圆滑度
     public static float ROUNDNESS = 10.0f;
     // 边框颜色
@@ -70,35 +61,20 @@ public class HelloApplication extends Application {
     public static Color UNSELECTED_FONT_COLOR = Color.color(0.5, 0.5, 0.5);
     // 字体
     public static Font TEXT_FONT = Font.font("Arial", FontWeight.NORMAL, 12);
-    // 取消显示位移量
 
-    // 交点窗口
-    public static MinWindow cancelWindow;
-    @SuppressWarnings("ClassEscapesDefinedScope")
-    public static BaseLabel cancelLabel;
-    public static float CANCEL_SHOW_OFFSET = -10000.0f;
     public static Scene scene;
-    public static boolean isConnectingInput = false;
-    public static boolean isConnectingData = false;
-    public static boolean isConnectingDataInput = false;
-    public static ImageView NodeAddImage;
-    public static double mouseX;
-    public static double mouseY;
+
     public static List<String> paths = List.of(
 //            "F:\\McServer\\Plugin\\dir\\src",
             "F:\\McServer\\Plugin\\SpigotPluginCreaterTool\\src\\main\\java\\org\\bxwbb\\spigotplugincreatertool"
     );
-    public static NodeEditor openNodeEditor;
     public static Stage primaryStage;
-    public static Node.NodeCardNode laseNodeCardNode = null;
-    public static boolean isConnectingLine = false;
 
     private static final Button textField = new Button();
 
     public static void ini() {
         for (String path : paths) {
             logger.info("加载第1/1项-扫描类");
-            SearchBox.records.addAll(JavaSourceScannerFixed.scanJavaSources(path));
         }
     }
 
@@ -166,366 +142,11 @@ public class HelloApplication extends Application {
 
         scene = new Scene(root, 1200, 800);
 
-        root.getChildren().add(HelloApplication.textField);
-        HelloApplication.textField.setLayoutX(-100);
-        HelloApplication.textField.setLayoutY(-100);
-
-        MinWindow minWindow = new MinWindow(0.0f, 10.0f, 1200.0f, 780.0f, root, MinWindowType.MinWindowTypeEnum.NodeEditorType);
-
-        NodeAddImage = new ImageView(new Image(Objects.requireNonNull(HelloApplication.class.getResourceAsStream(
-                "/org/bxwbb/spigotplugincreatertool/icon/NodeEditor/Add.png"
-        ))));
-        NodeAddImage.setFitWidth(30.0f);
-        NodeAddImage.setFitHeight(30.0f);
-        NodeAddImage.setVisible(false);
-        isConnectingLine = false;
-        root.getChildren().add(NodeAddImage);
-
-        scene.setOnMouseClicked(minWindow::onMouseSceneClick);
-
-        scene.addEventHandler(MouseEvent.MOUSE_MOVED, event -> {
-            mouseX = event.getX();
-            mouseY = event.getY();
-            MinWindow r = minWindow;
-            while (r != null) {
-                if (MinWindow.isPointInRectangle(r.startX, r.startY, r.endX, r.endY, event.getX(), event.getY())) {
-                    cancelWindow = r;
-                    return;
-                }
-                r = r.minWindows;
-            }
-        });
-
-        scene.addEventHandler(MouseEvent.MOUSE_DRAGGED, event -> {
-            // 节点编辑器
-            if (cancelWindow.minWindowType.getType().equals(MinWindowType.MinWindowTypeEnum.NodeEditorType)) {
-                NodeEditor nodeEditor = (NodeEditor) cancelWindow.minWindowType;
-                if (event.getButton() == MouseButton.PRIMARY) {
-                    NodeAddImage.setX(event.getX() + 15);
-                    NodeAddImage.setY(event.getY() - 35);
-                    if (nodeEditor.userConnectingLine) {
-                        NodeAddImage.setVisible(true);
-                        isConnectingLine = true;
-                        if (isConnectingData) {
-                            if (isConnectingDataInput) {
-                                nodeEditor.connectingLine.resetPos(event.getX(), event.getY());
-                            } else {
-                                nodeEditor.connectingLine.resetSize(event.getX(), event.getY());
-                            }
-                            if (laseNodeCardNode != null && laseNodeCardNode.varType.equals(Node.VarType.SELF_ADAPTION_LIST)) {
-                                ((Rectangle) laseNodeCardNode.point.getChildren().getFirst()).setHeight(14 + (Math.max(((SelfAdaptionListSlider) laseNodeCardNode.edit).dataLines.size() - 1, 0)) * 10);
-                                ((SelfAdaptionListSlider) laseNodeCardNode.edit).setStartIndex(-1);
-                            }
-                            for (Node node : nodeEditor.nodes) {
-                                if (MinWindow.isPointInRectangle(node.startX, node.startY, node.endX, node.endY, event.getX(), event.getY())) {
-                                    if (isConnectingDataInput) {
-                                        if (MinWindow.isPointInRectangle(
-                                                node.startX, node.startY, node.endX, node.endY,
-                                                nodeEditor.connectingLine.bezierCurve.endX,
-                                                nodeEditor.connectingLine.bezierCurve.endY
-                                        )) continue;
-                                        if (nodeEditor.focusNode == node) continue;
-                                        for (Node.NodeCardNode nodeCardNode : node.rightCardNodes) {
-                                            if (MinWindow.isPointInRectangle(
-                                                    nodeCardNode.point.getChildren().getFirst().getLayoutX(), nodeCardNode.point.getChildren().getFirst().getLayoutY(),
-                                                    nodeCardNode.point.getChildren().getFirst().getLayoutX() - 114514, nodeCardNode.point.getChildren().getFirst().getLayoutY() + nodeCardNode.edit.getHeight(),
-                                                    event.getX(), event.getY()
-                                            )) {
-                                                if (nodeCardNode.point.getChildren().getFirst() instanceof Circle) {
-                                                    nodeEditor.connectingLine.resetPos(nodeCardNode.point.getChildren().getFirst().getLayoutX(), nodeCardNode.point.getChildren().getFirst().getLayoutY());
-                                                } else {
-                                                    nodeEditor.connectingLine.resetPos(nodeCardNode.point.getChildren().getFirst().getLayoutX() + 7, nodeCardNode.point.getChildren().getFirst().getLayoutY() + 7);
-                                                }
-                                            }
-                                        }
-                                    } else {
-                                        if (MinWindow.isPointInRectangle(
-                                                node.startX, node.startY, node.endX, node.endY,
-                                                nodeEditor.connectingLine.bezierCurve.startX,
-                                                nodeEditor.connectingLine.bezierCurve.startY
-                                        )) continue;
-                                        if (nodeEditor.focusNode == node) continue;
-                                        for (Node.NodeCardNode nodeCardNode : node.leftCardNodes) {
-                                            if (MinWindow.isPointInRectangle(
-                                                    nodeCardNode.point.getChildren().getFirst().getLayoutX(), nodeCardNode.point.getChildren().getFirst().getLayoutY(),
-                                                    nodeCardNode.point.getChildren().getFirst().getLayoutX() + 114514, nodeCardNode.point.getChildren().getFirst().getLayoutY() + nodeCardNode.edit.getHeight(),
-                                                    event.getX(), event.getY()
-                                            )) {
-                                                laseNodeCardNode = nodeCardNode;
-                                                if (!(nodeCardNode.varType.equals(Node.VarType.SELF_ADAPTION_LIST))) {
-                                                    if (nodeCardNode.point.getChildren().getFirst() instanceof Circle) {
-                                                        nodeEditor.connectingLine.resetSize(nodeCardNode.point.getChildren().getFirst().getLayoutX(), nodeCardNode.point.getChildren().getFirst().getLayoutY());
-                                                    } else {
-                                                        nodeEditor.connectingLine.resetSize(nodeCardNode.point.getChildren().getFirst().getLayoutX() + 7, nodeCardNode.point.getChildren().getFirst().getLayoutY() + 7);
-                                                    }
-                                                } else {
-                                                    ((Rectangle) nodeCardNode.point.getChildren().getFirst()).setHeight(14 + ((((SelfAdaptionListSlider) nodeCardNode.edit).dataLines.size())) * 10);
-                                                    ((SelfAdaptionListSlider) nodeCardNode.edit).setStartIndex((int) ((event.getY() - (nodeCardNode.point.getChildren().getFirst().getLayoutY() + 7)) / 10));
-                                                    nodeEditor.connectingLine.resetSize(nodeCardNode.point.getChildren().getFirst().getLayoutX() + 7, nodeCardNode.point.getChildren().getFirst().getLayoutY() + 7 + Math.min(((int) ((event.getY() - (nodeCardNode.point.getChildren().getFirst().getLayoutY() + 7)) / 10)), ((SelfAdaptionListSlider) nodeCardNode.edit).dataLines.size()) * 10);
-                                                }
-                                            }
-                                        }
-                                    }
-                                    return;
-                                }
-                            }
-                        } else {
-                            if (isConnectingInput) {
-                                nodeEditor.connectingLine.resetPos(event.getX(), event.getY());
-                            } else {
-                                nodeEditor.connectingLine.resetSize(event.getX(), event.getY());
-                            }
-                            for (Node node : nodeEditor.nodes) {
-                                if (MinWindow.isPointInRectangle(node.startX, node.startY, node.endX, node.endY, event.getX(), event.getY())) {
-                                    if (isConnectingInput) {
-                                        if (!node.rightRunLineB) continue;
-                                        if (MinWindow.isPointInRectangle(
-                                                node.startX, node.startY, node.endX, node.endY,
-                                                nodeEditor.connectingLine.bezierCurve.endX,
-                                                nodeEditor.connectingLine.bezierCurve.endY
-                                        )) continue;
-                                        nodeEditor.connectingLine.resetPos(node.endX - 15, node.startY + 15);
-                                    } else {
-                                        if (!node.leftRunLineB) continue;
-                                        if (MinWindow.isPointInRectangle(
-                                                node.startX, node.startY, node.endX, node.endY,
-                                                nodeEditor.connectingLine.bezierCurve.startX,
-                                                nodeEditor.connectingLine.bezierCurve.startY
-                                        )) continue;
-                                        nodeEditor.connectingLine.resetSize(node.startX + 10, node.startY + 15);
-                                    }
-                                    return;
-                                }
-                            }
-                        }
-                    }
-                }
-            } else {
-                if (isConnectingLine) {
-                    MinWindow r = minWindow;
-                    while (r != null) {
-                        if (r.minWindowType.getType().equals(MinWindowType.MinWindowTypeEnum.NodeEditorType)) {
-                            NodeEditor nodeEditor = (NodeEditor) r.minWindowType;
-                            if (nodeEditor.userConnectingLine) {
-                                nodeEditor.userConnectingLine = false;
-                                nodeEditor.connectingLine.delete();
-                                nodeEditor.connectingLine = null;
-                            }
-                        }
-                        r = r.minWindows;
-                    }
-                }
-            }
-        });
-
-        scene.addEventHandler(MouseEvent.MOUSE_RELEASED, event -> {
-            if (isConnectingLine) {
-                // 节点编辑器
-                if (cancelWindow.minWindowType.getType().equals(MinWindowType.MinWindowTypeEnum.NodeEditorType)) {
-                    NodeEditor nodeEditor = (NodeEditor) cancelWindow.minWindowType;
-                    if (event.getButton() == MouseButton.PRIMARY) {
-                        NodeAddImage.setX(event.getX() + 15);
-                        NodeAddImage.setY(event.getY() - 35);
-                        if (nodeEditor.userConnectingLine) {
-                            NodeAddImage.setVisible(true);
-                            isConnectingLine = true;
-                            if (isConnectingData) {
-                                List<Node> finalNode = new ArrayList<>(nodeEditor.nodes);
-                                for (Node node : finalNode) {
-                                    if (MinWindow.isPointInRectangle(node.startX, node.startY, node.endX, node.endY, event.getX(), event.getY())) {
-                                        if (isConnectingDataInput) {
-                                            if (MinWindow.isPointInRectangle(
-                                                    node.startX, node.startY, node.endX, node.endY,
-                                                    nodeEditor.connectingLine.bezierCurve.endX,
-                                                    nodeEditor.connectingLine.bezierCurve.endY
-                                            )) continue;
-                                            if (nodeEditor.focusNode == node) continue;
-                                            int index = 0;
-                                            for (Node.NodeCardNode nodeCardNode : node.rightCardNodes) {
-                                                if (MinWindow.isPointInRectangle(
-                                                        nodeCardNode.point.getChildren().getFirst().getLayoutX(), nodeCardNode.point.getChildren().getFirst().getLayoutY(),
-                                                        nodeCardNode.point.getChildren().getFirst().getLayoutX() - 114514, nodeCardNode.point.getChildren().getFirst().getLayoutY() + nodeCardNode.edit.getHeight(),
-                                                        event.getX(), event.getY()
-                                                )) {
-                                                    ConnectingLine cl = (ConnectingLine) nodeEditor.connectingLine.createNew();
-                                                    nodeEditor.addConnectingDataLine(cl, (Color) ((Shape) nodeCardNode.point.getChildren().getFirst()).getFill(), (Color) ((Shape) nodeEditor.focusCardNode.point.getChildren().getFirst()).getFill());
-                                                    int r = 0;
-                                                    for (Node.NodeCardNode cardNode : node.leftCardNodes) {
-                                                        if (MinWindow.isPointInRectangle(
-                                                                cardNode.point.getChildren().getFirst().getLayoutX(), cardNode.point.getChildren().getFirst().getLayoutY(),
-                                                                cardNode.point.getChildren().getFirst().getLayoutX() + 114514, cardNode.point.getChildren().getFirst().getLayoutY() + cardNode.edit.getHeight(),
-                                                                event.getX(), event.getY()
-                                                        )) {
-                                                            break;
-                                                        } else {
-                                                            r++;
-                                                        }
-                                                    }
-                                                    if (nodeEditor.focusNode.leftDataLines.get(r) != null) {
-                                                        nodeEditor.removeConnectingDataLine(nodeEditor.focusNode.leftDataLines.get(r));
-                                                    }
-                                                    nodeEditor.focusNode.leftDataLines.set(r, cl);
-                                                    nodeEditor.focusNode.leftCardNodes.get(r).edit.setDisplayVisible(false);
-                                                    nodeEditor.focusNode.leftDataPointList.set(r, new Node.DataLinePoint(nodeEditor.nodesCtr.get(nodeEditor.nodes.indexOf(node)), index));
-                                                    node.rightDataLines.get(index).add(cl);
-                                                    nodeEditor.focusNode.resetPos((float) nodeEditor.focusNode.startX, (float) nodeEditor.focusNode.startY);
-                                                    node.resetPos((float) node.startX, (float) node.startY);
-                                                    node.addTo();
-                                                }
-                                                index++;
-                                            }
-                                        } else {
-                                            if (MinWindow.isPointInRectangle(
-                                                    node.startX, node.startY, node.endX, node.endY,
-                                                    nodeEditor.connectingLine.bezierCurve.startX,
-                                                    nodeEditor.connectingLine.bezierCurve.startY
-                                            )) continue;
-                                            if (nodeEditor.focusNode == node) continue;
-                                            int index = 0;
-                                            for (Node.NodeCardNode nodeCardNode : node.leftCardNodes) {
-                                                if (MinWindow.isPointInRectangle(
-                                                        nodeCardNode.point.getChildren().getFirst().getLayoutX(), nodeCardNode.point.getChildren().getFirst().getLayoutY(),
-                                                        nodeCardNode.point.getChildren().getFirst().getLayoutX() + 114514, nodeCardNode.point.getChildren().getFirst().getLayoutY() + nodeCardNode.edit.getHeight(),
-                                                        event.getX(), event.getY()
-                                                )) {
-                                                    ConnectingLine cl = (ConnectingLine) nodeEditor.connectingLine.createNew();
-                                                    nodeEditor.addConnectingDataLine(cl, (Color) ((Shape) nodeEditor.focusCardNode.point.getChildren().getFirst()).getFill(), (Color) ((Shape) nodeCardNode.point.getChildren().getFirst()).getFill());
-                                                    int r = 0;
-                                                    r = nodeEditor.focusNode.rightCardNodes.indexOf(nodeEditor.focusCardNode);
-//                                                    for (Node.NodeCardNode cardNode : nodeEditor.focusNode.rightCardNodes) {
-//                                                        if (cardNode == nodeEditor.focusCardNode) break;
-//                                                        r++;
-//                                                    }
-                                                    nodeEditor.focusNode.rightDataLines.get(r).add(cl);
-                                                    if (!node.leftCardNodes.get(index).varType.equals(Node.VarType.SELF_ADAPTION_LIST)) {
-                                                        if (node.leftDataLines.get(index) != null)
-                                                            nodeEditor.removeConnectingDataLine(node.leftDataLines.get(index));
-                                                        node.leftDataLines.set(index, cl);
-                                                        node.leftCardNodes.get(index).edit.setDisplayVisible(false);
-                                                        NodeCtr nc = nodeEditor.nodesCtr.get(nodeEditor.nodes.indexOf(nodeEditor.focusNode));
-                                                        node.leftDataPointList.set(index, new Node.DataLinePoint(nc, r));
-                                                        nodeEditor.focusNode.resetPos((float) nodeEditor.focusNode.startX, (float) nodeEditor.focusNode.startY);
-                                                        node.resetPos((float) node.startX, (float) node.startY);
-                                                    } else {
-                                                        NodeCtr nc = nodeEditor.nodesCtr.get(nodeEditor.nodes.indexOf(nodeEditor.focusNode));
-                                                        try {
-                                                            ((SelfAdaptionListSlider) node.leftCardNodes.get(index).edit).insertDataLine(
-                                                                    ((SelfAdaptionListSlider) node.leftCardNodes.get(index).edit).startIndex,
-                                                                    cl,
-                                                                    new Node.DataLinePoint(
-                                                                            nc,
-                                                                            r
-                                                                    )
-                                                            );
-                                                        } catch (ClassNotFoundException e) {
-                                                            throw new RuntimeException(e);
-                                                        }
-                                                        ((Rectangle) node.leftCardNodes.get(index).point.getChildren().getFirst()).setHeight(14 + ((((SelfAdaptionListSlider) node.leftCardNodes.get(index).edit).dataLines.size()) - 1) * 10);
-                                                        ((SelfAdaptionListSlider) node.leftCardNodes.get(index).edit).setStartIndex(-1);
-                                                        node.leftCardNodes.get(index).edit.setDisplayVisible(false);
-                                                        nodeEditor.focusNode.resetPos((float) nodeEditor.focusNode.startX, (float) nodeEditor.focusNode.startY);
-                                                        node.resetPos((float) node.startX, (float) node.startY);
-                                                        node.addTo();
-                                                    }
-                                                }
-                                                index++;
-                                            }
-                                        }
-                                    }
-                                }
-                                if (isConnectingDataInput) {
-                                    nodeEditor.connectingLine.resetPos(event.getX(), event.getY());
-                                } else {
-                                    nodeEditor.connectingLine.resetSize(event.getX(), event.getY());
-                                }
-                            } else {
-                                for (Node node : nodeEditor.nodes) {
-                                    if (MinWindow.isPointInRectangle(node.startX, node.startY, node.endX, node.endY, event.getX(), event.getY())) {
-                                        if (isConnectingInput) {
-                                            if (!node.rightRunLineB) continue;
-                                            if (MinWindow.isPointInRectangle(
-                                                    node.startX, node.startY, node.endX, node.endY,
-                                                    nodeEditor.connectingLine.bezierCurve.endX,
-                                                    nodeEditor.connectingLine.bezierCurve.endY
-                                            )) continue;
-                                            ConnectingLine cl = (ConnectingLine) nodeEditor.connectingLine.createNew();
-                                            if (node.rightRunLine != null)
-                                                nodeEditor.removeConnectingLine(node.rightRunLine);
-                                            node.rightRunLine = cl;
-                                            if (nodeEditor.focusNode.leftRunLine != null)
-                                                nodeEditor.removeConnectingLine(nodeEditor.focusNode.leftRunLine);
-                                            nodeEditor.focusNode.leftRunLine = cl;
-                                            node.nextNode = nodeEditor.focusNode;
-                                            nodeEditor.focusNode.lastNode = node;
-                                            nodeEditor.addConnectingLine(cl);
-                                            nodeEditor.testConnectingLine(nodeEditor.focusNode);
-                                            nodeEditor.focusNode.resetPos((float) nodeEditor.focusNode.startX, (float) nodeEditor.focusNode.startY);
-                                            node.resetPos((float) node.startX, (float) node.startY);
-                                            node.addTo();
-                                        } else {
-                                            if (!node.leftRunLineB) continue;
-                                            if (MinWindow.isPointInRectangle(
-                                                    node.startX, node.startY, node.endX, node.endY,
-                                                    nodeEditor.connectingLine.bezierCurve.startX,
-                                                    nodeEditor.connectingLine.bezierCurve.startY
-                                            )) continue;
-                                            ConnectingLine cl = (ConnectingLine) nodeEditor.connectingLine.createNew();
-                                            if (node.leftRunLine != null)
-                                                nodeEditor.removeConnectingLine(node.leftRunLine);
-                                            node.leftRunLine = cl;
-                                            if (nodeEditor.focusNode.rightRunLine != null)
-                                                nodeEditor.removeConnectingLine(nodeEditor.focusNode.rightRunLine);
-                                            nodeEditor.focusNode.rightRunLine = cl;
-                                            nodeEditor.focusNode.nextNode = node;
-                                            node.lastNode = nodeEditor.focusNode;
-                                            nodeEditor.addConnectingLine(cl);
-                                            nodeEditor.testConnectingLine(nodeEditor.focusNode);
-                                            nodeEditor.focusNode.resetPos((float) nodeEditor.focusNode.startX, (float) nodeEditor.focusNode.startY);
-                                            node.resetPos((float) node.startX, (float) node.startY);
-                                            node.addTo();
-                                        }
-                                        break;
-                                    }
-                                }
-                                if (isConnectingInput) {
-                                    nodeEditor.connectingLine.resetPos(event.getX(), event.getY());
-                                } else {
-                                    nodeEditor.connectingLine.resetSize(event.getX(), event.getY());
-                                }
-                            }
-                        }
-                    }
-                }
-                MinWindow r = minWindow;
-                while (r != null) {
-                    if (r.minWindowType.getType().equals(MinWindowType.MinWindowTypeEnum.NodeEditorType)) {
-                        NodeEditor nodeEditor = (NodeEditor) r.minWindowType;
-                        if (nodeEditor.userConnectingLine) {
-                            nodeEditor.userConnectingLine = false;
-                            NodeAddImage.setVisible(false);
-                            nodeEditor.connectingLine.delete();
-                            nodeEditor.connectingLine = null;
-                            isConnectingLine = false;
-                            isConnectingData = false;
-                        }
-                    }
-                    r = r.minWindows;
-                }
-            }
-        });
-
-        scene.setOnKeyPressed(keyEvent -> {
-            if (keyEvent.isShiftDown() && keyEvent.getCode() == KeyCode.A) {
-                if (cancelWindow == null) return;
-                if (cancelWindow.minWindowType.getType().equals(MinWindowType.MinWindowTypeEnum.NodeEditorType)) {
-                    NodeEditor nodeEditor = (NodeEditor) cancelWindow.minWindowType;
-                    if (cancelLabel != null) cancelLabel.delete();
-                    cancelLabel = new SearchBox(mouseX, mouseY, scene.getWidth(), scene.getHeight());
-                    cancelLabel.addTo(root);
-                    openNodeEditor = nodeEditor;
-                }
-            }
-        });
+        NodeEditor nodeEditor = new NodeEditor();
+        nodeEditor.init();
+        nodeEditor.resetPos(20, 20);
+        nodeEditor.resetSize(1160, 760);
+        nodeEditor.addTo(root);
 
         scene.setFill(BG_COLOR);
         mainStage.setTitle("我的世界spigot插件图形化开发工具 -BY BXWBB bilibili:1814140675 QQ:3754934636");

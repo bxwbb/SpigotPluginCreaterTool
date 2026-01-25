@@ -38,7 +38,7 @@ syn keyword amlArcCmd contained  transa[ction] transfe[r] transfercoverage trans
 
 " FORMEDIT reserved words, defined as keywords.
 
-syn keyword amlFormedCmd contained  button choice display help input slider text
+syn keyword amlFormedCmd contained  button choice display help input verticalSlider text
 
 " TABLES reserved words, defined as keywords.
 

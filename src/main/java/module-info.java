@@ -15,8 +15,11 @@ module org.bxwbb.spigotplugincreatertool {
     requires java.desktop;
 
     opens org.bxwbb.spigotplugincreatertool to javafx.fxml;
-    opens org.bxwbb.spigotplugincreatertool.windowLabel;
-    opens org.bxwbb.spigotplugincreatertool.MinWindowS.NodeEditor;
-    opens org.bxwbb.spigotplugincreatertool.windowLabel.CodeFramework;
+    opens org.bxwbb.spigotplugincreatertool.WindowLabel;
+    opens org.bxwbb.spigotplugincreatertool.WindowLabel.Base;
     exports org.bxwbb.spigotplugincreatertool;
+    exports org.bxwbb.spigotplugincreatertool.WindowLabel;
+    exports org.bxwbb.spigotplugincreatertool.WindowLabel.Base;
+    exports org.bxwbb.spigotplugincreatertool.WindowLabel.Test;
+    opens org.bxwbb.spigotplugincreatertool.WindowLabel.Test to javafx.fxml;
 }
