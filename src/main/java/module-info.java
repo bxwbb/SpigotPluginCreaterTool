@@ -1,25 +1,17 @@
 module org.bxwbb.spigotplugincreatertool {
+    // 导出你的Application所在的包给javafx.graphics模块
+    exports org.bxwbb.spigotplugincreatertool to javafx.graphics;
+
+    // 声明依赖JavaFX的核心模块
     requires javafx.controls;
     requires javafx.fxml;
-    requires javafx.web;
-
-    requires org.controlsfx.controls;
-    requires com.dlsc.formsfx;
-    requires net.synedra.validatorfx;
-    requires org.kordamp.ikonli.javafx;
-    requires org.kordamp.bootstrapfx.core;
-    requires eu.hansolo.tilesfx;
-    requires com.alibaba.fastjson2;
-    requires java.logging;
+    requires javafx.graphics;
     requires org.slf4j;
-    requires java.desktop;
 
+    // 如果需要打开包给反射访问（比如用FXML时），添加这行（可选）
     opens org.bxwbb.spigotplugincreatertool to javafx.fxml;
-    opens org.bxwbb.spigotplugincreatertool.WindowLabel;
-    opens org.bxwbb.spigotplugincreatertool.WindowLabel.Base;
-    exports org.bxwbb.spigotplugincreatertool;
-    exports org.bxwbb.spigotplugincreatertool.WindowLabel;
-    exports org.bxwbb.spigotplugincreatertool.WindowLabel.Base;
-    exports org.bxwbb.spigotplugincreatertool.WindowLabel.Test;
-    opens org.bxwbb.spigotplugincreatertool.WindowLabel.Test to javafx.fxml;
+    exports org.bxwbb.spigotplugincreatertool.BxWinLab;
+    exports org.bxwbb.spigotplugincreatertool.BxWinLab.Base;
+    exports org.bxwbb.spigotplugincreatertool.BxWinLab.Enum;
+    exports org.bxwbb.spigotplugincreatertool.BxWinLab.Util;
 }
